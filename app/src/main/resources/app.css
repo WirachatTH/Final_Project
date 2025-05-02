@@ -128,10 +128,6 @@
   -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0.3, 0, 5);
 }
 
-.root {
-  -fx-font-family: "Segoe UI Historic", sans-serif;
-}
-
 .table-view {
   -fx-border-color: #8B0000;
   -fx-border-width: 2;
@@ -148,4 +144,17 @@
 .scroll-pane {
   -fx-background: transparent;
   -fx-padding: 5;
+}
+
+.path-line {
+  -fx-view-order: 1;
+}
+
+.node-shape {
+  -fx-view-order: 0;
+}
+
+.junction-text {
+  -fx-fill: white;
+  -fx-font-weight: bolder;
 }
