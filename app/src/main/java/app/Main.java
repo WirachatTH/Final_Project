@@ -70,15 +70,13 @@ public class Main extends Application {
 
         // 4) Start button switches root to main UI
         startBtn.setOnAction(e -> {
-    // 1) สร้าง Fade out ให้หน้า startRoot
-    FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
-    fadeOut.setFromValue(1.0);
-    fadeOut.setToValue(0.0);
-    fadeOut.setOnFinished(evt -> {
-        // 2) หยุดเพลง (ถ้ามี)
-        mediaPlayer.stop();
+        // 1) สร้าง Fade out ให้หน้า startRoot
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        fadeOut.setOnFinished(evt -> {
 
-        // 3) สร้าง GridEditor + TabPane ตามเดิม
+        // 2) สร้าง GridEditor + TabPane ตามเดิม
         GridEditor edit = new GridEditor(gm);
         Label status = new Label("พร้อมใช้งาน");
         edit.setStatusTarget(status);
@@ -96,11 +94,11 @@ public class Main extends Application {
         tabs.getStyleClass().add("tab-pane");
         tabs.setOpacity(0); // เริ่มต้นให้โปร่งใส เพื่อเตรียม fade in
 
-        // 4) สลับ Scene root
-        scene.setRoot(tabs);
+        // 3) สลับ Scene root
+        scene.setRoot(wrapWithMute(tabs));
         stage.setFullScreen(true);
 
-        // 5) Fade in หน้าใหม่
+        // 4) Fade in หน้าใหม่
         FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs);
         fadeIn.setFromValue(0.0);
         fadeIn.setToValue(1.0);

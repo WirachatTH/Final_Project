@@ -1,9 +1,12 @@
 package ui;
 
 import javafx.scene.text.Text;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.collections.FXCollections;
 import java.awt.Point;
 import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -67,11 +70,9 @@ public class GridEditor extends HBox {
     public GridEditor(GraphModel model) {
         this.graph = model;
         // init grid state
-        for (int r = 0; r < CELLS; r++) {
-            for (int c = 0; c < CELLS; c++) {
+        for (int r = 0; r < CELLS; r++)
+            for (int c = 0; c < CELLS; c++)
                 gridState[r][c] = CellState.EMPTY;
-            }
-        }
 
         setSpacing(10);
 
@@ -85,15 +86,56 @@ public class GridEditor extends HBox {
         edgeTable = new TableView<>();
         edgeTable.setPrefWidth(200);
         TableColumn<EdgeRow,String> colC = new TableColumn<>("Connection");
-        colC.setCellValueFactory(r ->
-            new SimpleStringProperty(r.getValue().connection()));
+        colC.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().connection()));
         TableColumn<EdgeRow,String> colW = new TableColumn<>("Weight");
-        colW.setCellValueFactory(r ->
-            new SimpleStringProperty(String.valueOf((int)r.getValue().weight())));
+        colW.setCellValueFactory(r -> new SimpleStringProperty(String.valueOf((int)r.getValue().weight())));
         edgeTable.getColumns().addAll(colC, colW);
         edgeTable.setItems(FXCollections.observableArrayList());
 
-        getChildren().addAll(gridPane, edgeTable);
+        // reset button
+        Button resetBtn = new Button("Reset");
+        resetBtn.setOnAction(e -> resetAll());
+
+        // layout: left side with reset + grid, right side edge table
+        VBox leftBox = new VBox(5, resetBtn, gridPane);
+        leftBox.setAlignment(Pos.TOP_CENTER);
+
+        getChildren().addAll(leftBox, edgeTable);
+    }
+
+    /** Completely clears all nodes, edges, and UI elements */
+    private void resetAll() {
+        // clear model data
+        graph.nodes().clear();
+        graph.edges().clear();
+        graph.tableIds().clear();
+        graph.junctionIds().clear();
+
+        // reset counters
+        nextTableNumber = 1;
+        nextJunctionNumber = 1;
+
+        // clear UI state
+        nodeShapes.clear();
+        edgeShapes.clear();
+        cellEdgeMap.clear();
+        clearPathState();
+
+        // reset gridState to EMPTY
+        for (int r = 0; r < CELLS; r++) {
+            for (int c = 0; c < CELLS; c++) {
+                gridState[r][c] = CellState.EMPTY;
+            }
+        }
+
+        // rebuild grid and table view
+        drawGridLines();
+        gridPane.getChildren().clear();
+        drawGridLines();
+        drawGridLines();
+        for (javafx.scene.Node h : gridPane.getChildren()) { /* grid lines remain */ }
+        edgeTable.getItems().clear();
+        showStatus("Reset complete");
     }
 
     public void setCurrentTable(TableType t) {
@@ -167,16 +209,21 @@ public class GridEditor extends HBox {
         GraphModel.Node n = graph.addNode(x, y, currentTable);
         graph.tableIds().put(n.id(), nextTableNumber);
 
+        StackPane nodeGroup = new StackPane();
+        nodeGroup.setTranslateX(x-(CELL_SIZE*0.35));
+        nodeGroup.setTranslateY(y-(CELL_SIZE*0.35));
+
         Circle circ = new Circle(x, y, CELL_SIZE*0.35, Color.web(currentTable.colorHex));
         circ.setStroke(Color.BLACK);
         nodeShapes.put(n, circ);
-        gridPane.getChildren().add(circ);
 
-        Text lbl = new Text(String.valueOf( n.type() + "-" + nextTableNumber));
-        lbl.setX(x-12); lbl.setY(y+4);
-        lbl.setMouseTransparent(true);
-        gridPane.getChildren().add(lbl);
+        Text lbl = new Text(n.type() + "-" + nextTableNumber);
+        lbl.getStyleClass().add("table-text");
 
+        nodeGroup.getChildren().addAll(circ, lbl);
+        nodeShapes.put(n, circ);          // still track the circle if needed
+        gridPane.getChildren().add(nodeGroup);
+        
         gridState[r][c] = CellState.TABLE;
         showStatus("Placed table " + nextTableNumber);
         nextTableNumber++;
@@ -302,14 +349,22 @@ public class GridEditor extends HBox {
         GraphModel.Node mid=existing!=null?existing:graph.addNode(jx,jy,currentTable);
         if(existing==null){
             graph.junctionIds().put(mid.id(),nextJunctionNumber);
-            Circle jc=new Circle(jx,jy,CELL_SIZE*0.25,Color.RED);
+            Circle jc = new Circle(jx,jy,CELL_SIZE*0.25,Color.RED);
             jc.setStroke(Color.BLACK);
             nodeShapes.put(mid,jc);
-            gridPane.getChildren().add(jc);
+
+            StackPane nodeGroup = new StackPane();
+            nodeGroup.setTranslateX(jx - (CELL_SIZE*0.25));
+            nodeGroup.setTranslateY(jy - (CELL_SIZE*0.25));
+
             Text lbl=new Text("J"+nextJunctionNumber);
-            lbl.setX(jx-5);lbl.setY(jy+2);lbl.setMouseTransparent(true);
+            lbl.setMouseTransparent(true);
             lbl.getStyleClass().add("junction-text");
-            gridPane.getChildren().add(lbl);
+
+            nodeGroup.getChildren().addAll(jc, lbl);
+            nodeShapes.put(mid, jc); 
+            gridPane.getChildren().add(nodeGroup);
+
             gridState[r][c]=CellState.TABLE;
             nextJunctionNumber++;
         }
