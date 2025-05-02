@@ -1,146 +1,151 @@
 /* ======= Start Screen Animations ======= */
 .start-screen {
-    -fx-alignment: center;
-    -fx-padding: 100;
-    -fx-background-color: linear-gradient(to bottom right, #8B0000, #B22222);
-    /* -fx-background-radius: 0 0 50 50; */
-  }
-  
-  /* ปรับ Animation ให้ Title กระพริบอ่อน ๆ */
-  @keyframes pulse {
-    0%   { -fx-opacity: 1; }
-    50%  { -fx-opacity: 0.7; }
-    100% { -fx-opacity: 1; }
-  }
-  .start-title {
-    -fx-font-size: 36px;
-    -fx-text-fill: #FFD700;
-    -fx-font-weight: bold;
-    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.8) , 10, 0.5 , 0 , 0 );
-    -fx-animation: pulse 3s infinite;
-  }
-  
-  /* ปรับ Hover/Pressed State ของปุ่ม Start */
-  .start-button {
-    -fx-font-size: 24px;
-    -fx-background-color: #FFD700;
-    -fx-text-fill: #8B0000;
-    -fx-padding: 10 30;
-    -fx-background-radius: 20;
-    -fx-border-radius: 20;
-    -fx-border-color: #8B0000;
-    -fx-border-width: 2;
-    -fx-cursor: hand;
-    -fx-effect: dropshadow( gaussian , rgba(0,0,0,0.6) , 5, 0.5 , 0 , 2 );
-    -fx-transition: all 0.2s ease-in-out;
-  }
-  .start-button:hover {
-    -fx-scale-x: 1.05;
-    -fx-scale-y: 1.05;
-    -fx-background-color: #FFC700;
-  }
-  .start-button:pressed {
-    -fx-scale-x: 0.95;
-    -fx-scale-y: 0.95;
-    -fx-background-color: #FFB000;
-  }
-  
-  /* ======= Main UI Enhancements ======= */
-  .tab-pane {
-    -fx-background-color: #FFF5E1;
-  }
-  /* เปลี่ยน Tab Header สีแดงทอง */
-  .tab-pane .tab-header-area {
-    -fx-background-color: #8B0000;
-  }
-  .tab-pane .tab-header-area .tab {
-    -fx-background-insets: 0;
-    -fx-background-radius: 0;
-    -fx-background-color: #B22222;
-    -fx-text-base-color: #FFD700;
-  }
-  .tab-pane .tab:selected {
-    -fx-background-color: #FFD700;
-    -fx-text-base-color: #8B0000;
-  }
-  
-  /* Toolbar ปุ่มมีไอคอนและ Hover Effect */
-  .tool-bar .button,
-  .tool-bar .toggle-button {
-    -fx-background-color: #8B0000;
-    -fx-text-fill: #FFD700;
-    -fx-background-radius: 5;
-    -fx-border-radius: 5;
-    -fx-cursor: hand;
-    -fx-transition: all 0.15s ease-in-out;
-  }
-  .tool-bar .button:hover,
-  .tool-bar .toggle-button:hover {
-    -fx-background-color: #A10000;
-    -fx-scale-x: 1.1;
-    -fx-scale-y: 1.1;
-  }
-  
-  /* GridEditor: แทรกเส้น Grid, Cell Hover */
-  .grid-cell {
-    -fx-border-color: rgba(0,0,0,0.1);
-    -fx-border-width: 0.5;
-    -fx-background-color: transparent;
-  }
-  .grid-cell:hover {
-    -fx-background-color: rgba(255,215,0,0.2);
-  }
-  
-  /* เพิ่ม Tooltip Style */
-  .tooltip {
-    -fx-background-color: #333;
-    -fx-text-fill: #FFD700;
-    -fx-font-size: 12px;
-    -fx-background-radius: 5;
-  }
-  
-  /* Drop shadow ให้ Pane หลัก */
-  .main-background {
-    -fx-background-color: #FFEFD5;
-    -fx-effect: dropshadow( three-pass-box , rgba(0,0,0,0.3) , 10, 0.3 , 0 , 5 );
-  }
-  
-  /* ปรับ Font ทั่วแอป และใส่ไอคอน Unicode ใน Labels */
-  /* .root {
-    -fx-font-family: "Segoe UI Historic", sans-serif;
-  }
-   */
-  /* Styling KitchenQueuePane Table */
-  .table-view {
-    -fx-border-color: #8B0000;
-    -fx-border-width: 2;
-    -fx-background-color: #FFF5E1;
-  }
-  .table-view .column-header-background {
-    -fx-background-color: #8B0000;
-  }
-  .table-view .column-header, .table-view .table-row-cell {
-    -fx-text-fill: #8B0000;
-  }
-  
-  /* ปรับ ScrollPane ของ GridEditor */
-  .scroll-pane {
-    -fx-background: transparent;
-    -fx-padding: 5;
-  }
-
-  .path-line {
-    -fx-view-order: 1;
-  }
-
-.node-shape {
-    -fx-view-order: 0;
+  -fx-alignment: center;
+  -fx-padding: 100;
+  -fx-background-color: linear-gradient(to bottom right, #8B0000, #B22222);
+  /* -fx-background-radius: 0 0 50 50; */
 }
 
-.junction-text {
-    -fx-fill: white;
-    -fx-font-weight: bolder;
+@keyframes pulse {
+  0%   { -fx-opacity: 1; }
+  50%  { -fx-opacity: 0.7; }
+  100% { -fx-opacity: 1; }
+}
+.start-title {
+  -fx-font-size: 36px;
+  -fx-text-fill: #FFD700;
+  -fx-font-weight: bold;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.8), 10, 0.5, 0, 0);
+  -fx-animation: pulse 3s infinite;
 }
 
+.start-button {
+  -fx-font-size: 24px;
+  -fx-background-color: #FFD700;
+  -fx-text-fill: #8B0000;
+  -fx-padding: 10 30;
+  -fx-background-radius: 20;
+  -fx-border-radius: 20;
+  -fx-border-color: #8B0000;
+  -fx-border-width: 2;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 5, 0.5, 0, 2);
+}
+.start-button:hover {
+  -fx-scale-x: 1.05;
+  -fx-scale-y: 1.05;
+  -fx-background-color: #FFC700;
+}
+.start-button:pressed {
+  -fx-scale-x: 0.95;
+  -fx-scale-y: 0.95;
+  -fx-background-color: #FFB000;
+}
 
+/* ======= Main UI Enhancements ======= */
+.tab-pane {
+  -fx-background-color: #FFF5E1;
+}
+.tab-pane .tab-header-area {
+  -fx-background-color: #8B0000;
+}
+.tab-pane .tab-header-area .tab {
+  -fx-background-insets: 0;
+  -fx-background-radius: 0;
+  -fx-background-color: #B22222;
+  -fx-text-base-color: #FFD700;
+}
+.tab-pane .tab:selected {
+  -fx-background-color: #FFD700;
+  -fx-text-base-color: #8B0000;
+}
 
+.tool-bar .button,
+.tool-bar .toggle-button {
+  -fx-background-color: #8B0000;
+  -fx-text-fill: #FFD700;
+  -fx-background-radius: 5;
+  -fx-border-radius: 5;
+  -fx-cursor: hand;
+}
+.tool-bar .button:hover,
+.tool-bar .toggle-button:hover {
+  -fx-background-color: #A10000;
+  -fx-scale-x: 1.1;
+  -fx-scale-y: 1.1;
+}
+
+/* ======= GridEditor Styling ======= */
+/* root pane background gradient */
+.grid-editor-root {
+  -fx-background-color: linear-gradient(
+      to bottom right,
+      rgba(255,215,0,0.2),
+      rgba(178,34,34,0.2)
+  );
+}
+
+/* transparent rectangles for hover+shadow */
+.grid-cell {
+  -fx-fill: transparent;
+  -fx-stroke: transparent;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 2, 0.5, 0, 1);
+}
+.grid-cell:hover {
+  -fx-scale-x: 1.05;
+  -fx-scale-y: 1.05;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 4, 0.5, 0, 2);
+  -fx-fill: rgba(255,215,0,0.2);
+}
+
+/* path segments */
+.path-cell {
+  -fx-stroke: #B22222;
+  -fx-stroke-width: 3;
+}
+
+/* table nodes */
+.table-cell {
+  -fx-fill: rgba(255,215,0,0.4);
+  -fx-stroke-width: 2;
+}
+.table-T2  { -fx-stroke: #FFD700; }  /* light gold */
+.table-T4  { -fx-stroke: #EEC900; }  /* goldenrod */
+.table-T6  { -fx-stroke: #DAA520; }  /* darker goldenrod */
+.table-T8  { -fx-stroke: #CD950C; }  /* peru/golden */
+.table-T10 { -fx-stroke: #B8860B; }  /* dark goldenrod */
+
+/* ======= Other UI Styles ======= */
+.tooltip {
+  -fx-background-color: #333;
+  -fx-text-fill: #FFD700;
+  -fx-font-size: 12px;
+  -fx-background-radius: 5;
+}
+
+.main-background {
+  -fx-background-color: #FFEFD5;
+  -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0.3, 0, 5);
+}
+
+.root {
+  -fx-font-family: "Segoe UI Historic", sans-serif;
+}
+
+.table-view {
+  -fx-border-color: #8B0000;
+  -fx-border-width: 2;
+  -fx-background-color: #FFF5E1;
+}
+.table-view .column-header-background {
+  -fx-background-color: #8B0000;
+}
+.table-view .column-header,
+.table-view .table-row-cell {
+  -fx-text-fill: #8B0000;
+}
+
+.scroll-pane {
+  -fx-background: transparent;
+  -fx-padding: 5;
+}
