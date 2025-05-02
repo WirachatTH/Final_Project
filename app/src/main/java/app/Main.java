@@ -1,19 +1,28 @@
 package app;
 
 import java.net.URL;
-import java.util.Random;
 
+import javafx.animation.FadeTransition;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.stage.Stage;
-import model.Dish;
+import javafx.util.Duration;
 import model.GraphModel;
 import model.TableType;
 import sim.SimulationEngine;
@@ -61,34 +70,46 @@ public class Main extends Application {
 
         // 4) Start button switches root to main UI
         startBtn.setOnAction(e -> {
+    // 1) สร้าง Fade out ให้หน้า startRoot
+    FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
+    fadeOut.setFromValue(1.0);
+    fadeOut.setToValue(0.0);
+    fadeOut.setOnFinished(evt -> {
+        // 2) หยุดเพลง (ถ้ามี)
+        mediaPlayer.stop();
 
-            // build GridEditor + status
-            GridEditor edit = new GridEditor(gm);
-            Label status = new Label("พร้อมใช้งาน");
-            edit.setStatusTarget(status);
+        // 3) สร้าง GridEditor + TabPane ตามเดิม
+        GridEditor edit = new GridEditor(gm);
+        Label status = new Label("พร้อมใช้งาน");
+        edit.setStatusTarget(status);
+        VBox topBar = new VBox(buildToolbar(edit), status);
+        topBar.getStyleClass().add("tool-bar");
+        BorderPane layoutRoot = new BorderPane(edit);
+        layoutRoot.setTop(topBar);
+        layoutRoot.getStyleClass().add("main-background");
+        Tab tabLayout = new Tab("Restaurant Layout", layoutRoot);
+        tabLayout.setClosable(false);
+        KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
+        Tab tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
+        tabKitchen.setClosable(false);
+        TabPane tabs = new TabPane(tabLayout, tabKitchen);
+        tabs.getStyleClass().add("tab-pane");
+        tabs.setOpacity(0); // เริ่มต้นให้โปร่งใส เพื่อเตรียม fade in
 
-            // toolbar + status bar
-            VBox topBar = new VBox(buildToolbar(edit), status);
-            topBar.getStyleClass().add("tool-bar");
+        // 4) สลับ Scene root
+        scene.setRoot(tabs);
+        stage.setFullScreen(true);
 
-            // main layout
-            BorderPane layoutRoot = new BorderPane(edit);
-            layoutRoot.setTop(topBar);
-            layoutRoot.getStyleClass().add("main-background");
+        // 5) Fade in หน้าใหม่
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs);
+        fadeIn.setFromValue(0.0);
+        fadeIn.setToValue(1.0);
+        fadeIn.play();
+    });
+    // เริ่ม fade out
+    fadeOut.play();
+});
 
-            Tab tabLayout = new Tab("Restaurant Layout", layoutRoot);
-            tabLayout.setClosable(false);
-
-            KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
-            Tab tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
-            tabKitchen.setClosable(false);
-
-            TabPane tabs = new TabPane(tabLayout, tabKitchen);
-            tabs.getStyleClass().add("tab-pane");
-
-            // reuse the same scene, just swap its root
-            scene.setRoot(wrapWithMute(tabs));
-        });
 
         stage.setScene(scene);
         stage.setFullScreen(true);
