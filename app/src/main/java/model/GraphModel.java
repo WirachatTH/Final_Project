@@ -2,7 +2,11 @@
 package model;
 
 import java.awt.Point;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Underlying graph of tables (and junctions) + paths between them.
@@ -31,11 +35,15 @@ public class GraphModel {
     private final Map<String,Integer> tableIds    = new HashMap<>();
     private final Map<String,Integer> junctionIds = new HashMap<>();
 
+    private String kitchenId = null;
+    public Optional<String> kitchenId() { return Optional.ofNullable(kitchenId); }
+    public void setKitchenId(String id) { this.kitchenId = id; }
+
     public Map<String,Integer> tableIds()    { return tableIds;    }
     public Map<String,Integer> junctionIds() { return junctionIds; }
 
     /** What kind of node is this, and what its user-facing number? */
-    public enum NodeKind { TABLE, JUNCTION }
+    public enum NodeKind { TABLE, JUNCTION, KITCHEN }
     public static class NodeInfo {
         public final NodeKind kind;
         public final int     number;
@@ -45,6 +53,9 @@ public class GraphModel {
         }
     }
     public Optional<NodeInfo> getNodeInfo(String id) {
+        if (kitchenId != null && kitchenId.equals(id)) {
+            return Optional.of(new NodeInfo(NodeKind.KITCHEN, 1));
+        }
         Integer t = tableIds.get(id);
         if (t != null) return Optional.of(new NodeInfo(NodeKind.TABLE, t));
         Integer j = junctionIds.get(id);

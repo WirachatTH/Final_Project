@@ -1,27 +1,34 @@
 package ui;
 
-import javafx.scene.text.Text;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
-import javafx.collections.FXCollections;
 import java.awt.Point;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.scene.text.Text;
 import model.GraphModel;
-import model.GraphModel.NodeKind;
 import model.GraphModel.NodeInfo;
+import model.GraphModel.NodeKind;
 import model.TableType;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * GridEditor with explicit 2D grid-state:
@@ -205,10 +212,26 @@ public class GridEditor extends HBox {
     }
 
     private void placeTable(int c, int r) {
+            // --- เพิ่มบล็อกกรณีวาง K ซ้ำ ---
+        if (currentTable == TableType.K && graph.nodes().stream().anyMatch(n -> n.type() == TableType.K)) {
+            showStatus("ERROR: มี Node K อยู่แล้ว ไม่สามารถวางซ้ำได้");
+            return;
+        }
+
         double x = c*CELL_SIZE + CELL_SIZE/2.0, y = r*CELL_SIZE + CELL_SIZE/2.0;
         GraphModel.Node n = graph.addNode(x, y, currentTable);
-        graph.tableIds().put(n.id(), nextTableNumber);
-
+        Text lbl;
+        if (currentTable == TableType.K) {
+         // เก็บ kitchenId แต่ไม่เพิ่มตัวนับ
+            graph.setKitchenId(n.id());
+            lbl = new Text("K");
+        } else {
+         // จับค่าเดิมก่อน increment เพื่อให้ไม่กระโดด
+            int num = nextTableNumber++;
+            graph.tableIds().put(n.id(), num);
+            lbl = new Text(currentTable + "-" + num);
+        }
+        
         StackPane nodeGroup = new StackPane();
         nodeGroup.setTranslateX(x-(CELL_SIZE*0.35));
         nodeGroup.setTranslateY(y-(CELL_SIZE*0.35));
@@ -217,16 +240,13 @@ public class GridEditor extends HBox {
         circ.setStroke(Color.BLACK);
         nodeShapes.put(n, circ);
 
-        Text lbl = new Text(n.type() + "-" + nextTableNumber);
         lbl.getStyleClass().add("table-text");
-
         nodeGroup.getChildren().addAll(circ, lbl);
         nodeShapes.put(n, circ);          // still track the circle if needed
         gridPane.getChildren().add(nodeGroup);
         
         gridState[r][c] = CellState.TABLE;
-        showStatus("Placed table " + nextTableNumber);
-        nextTableNumber++;
+        showStatus("Placed " + (currentTable == TableType.K ? "Kitchen" : "table " + (currentTable + "-" + graph.tableIds().get(n.id()))));
     }
 
     private void clickTable(int c, int r) {
@@ -399,22 +419,43 @@ public class GridEditor extends HBox {
                 .findFirst().orElseThrow();
             
             // 3) build the prefix: "J" for junctions, or tableType + "." otherwise
-            String aPrefix = aInfo.kind == NodeKind.JUNCTION
-                ? "J"
-                : aNode.type().toString() + "-";
+            String aPrefix;
+            if (aInfo.kind == NodeKind.JUNCTION) {
+                aPrefix = "J";
+            } else if (aInfo.kind == NodeKind.KITCHEN) {
+                aPrefix = "K";
+            } else {
+                aPrefix = aNode.type().toString() + "-";
+            }
             
             // 4) combine prefix + number
-            String sa = aPrefix + aInfo.number;
+            String sa;
+            if (aInfo.kind == NodeKind.KITCHEN) {
+                sa = "K";                             // แสดงแค่ "K"
+            } else {
+                sa = aPrefix + aInfo.number;         // "J1" หรือ "T8-1" ตามเดิม
+            }
     
             // repeat for the “to” side
             NodeInfo bInfo = graph.getNodeInfo(e.to).orElseThrow();
             GraphModel.Node bNode = graph.nodes().stream()
                 .filter(n -> n.id().equals(e.to))
                 .findFirst().orElseThrow();
-            String bPrefix = bInfo.kind == NodeKind.JUNCTION
-                ? "J"
-                : bNode.type().toString() + "-";
-            String sb = bPrefix + bInfo.number;
+                String bPrefix;
+                if (bInfo.kind == NodeKind.JUNCTION) {
+                    bPrefix = "J";
+                } else if (bInfo.kind == NodeKind.KITCHEN) {
+                    bPrefix = "K";
+                } else {
+                    bPrefix = bNode.type().toString() + "-";
+                }
+                
+                String sb;
+                if (bInfo.kind == NodeKind.KITCHEN) {
+                    sb = "K";
+                } else {
+                    sb = bPrefix + bInfo.number;
+                }
     
             return new EdgeRow(sa + " <-> " + sb, e.weight + 1);
         }).toList();

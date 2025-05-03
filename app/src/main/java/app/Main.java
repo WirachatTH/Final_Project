@@ -152,6 +152,7 @@ public class Main extends Application {
             makeTableBtn("T6",  TableType.T6 , ed, modeGroup),
             makeTableBtn("T8",  TableType.T8 , ed, modeGroup),
             makeTableBtn("T10", TableType.T10, ed, modeGroup),
+            makeTableBtn("K",   TableType.K  , ed, modeGroup),
             new Separator(),
             makePathToggle(ed, modeGroup),
             new Separator(),

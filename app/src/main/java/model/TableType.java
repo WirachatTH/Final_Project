@@ -6,7 +6,8 @@ public enum TableType {
     T4 (4,  "#ffd59f"),
     T6 (6,  "#c9ffb3"),
     T8 (8,  "#b3d9ff"),
-    T10(10, "#dab3ff");
+    T10(10, "#dab3ff"),
+    K  (0, "#ffff99");
 
     public final int seats;
     public final String colorHex;   // CSS สี 6 หลัก
