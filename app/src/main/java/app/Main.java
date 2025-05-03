@@ -156,7 +156,10 @@ public class Main extends Application {
             new Separator(),
             makePathToggle(ed, modeGroup),
             new Separator(),
-            cancelDrawButton(ed, modeGroup)
+            cancelDrawButton(ed, modeGroup),
+            new Separator(),
+            new Separator(),
+            beginSim(ed)
         );
     }
 
@@ -197,7 +200,10 @@ public class Main extends Application {
         ToggleButton btn = new ToggleButton("Path");
         btn.setToggleGroup(g);
         configureToggleButton(btn);
-        btn.setOnAction(e -> ed.setPathMode(btn.isSelected()));
+        btn.setOnAction(e -> {
+            ed.setPathMode(btn.isSelected());
+            ed.setCurrentTable(TableType.J);
+        });
         return btn;
     }
 
@@ -206,6 +212,14 @@ public class Main extends Application {
         btn.setOnAction(e -> {
             ed.cancelDraw();
             g.selectToggle(null);
+        });
+        return btn;
+    }
+
+    private Button beginSim(GridEditor ed) {
+        Button btn = new Button("Begin Simulation");
+        btn.setOnAction(e -> {
+            ed.startSim();
         });
         return btn;
     }

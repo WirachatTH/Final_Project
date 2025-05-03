@@ -43,7 +43,7 @@ public class GridEditor extends HBox {
     private final CellState[][] gridState = new CellState[CELLS][CELLS];
 
     private final GraphModel graph;
-    private TableType currentTable = TableType.T2;
+    private TableType currentTable = null;
     private boolean pathMode = false;
 
     private GraphModel.Node pathStart = null;
@@ -212,41 +212,29 @@ public class GridEditor extends HBox {
     }
 
     private void placeTable(int c, int r) {
-            // --- เพิ่มบล็อกกรณีวาง K ซ้ำ ---
-        if (currentTable == TableType.K && graph.nodes().stream().anyMatch(n -> n.type() == TableType.K)) {
-            showStatus("ERROR: มี Node K อยู่แล้ว ไม่สามารถวางซ้ำได้");
+        if (currentTable == null) {
+            showStatus("ERROR: Have not selected table type yet.");
             return;
         }
-
         double x = c*CELL_SIZE + CELL_SIZE/2.0, y = r*CELL_SIZE + CELL_SIZE/2.0;
         GraphModel.Node n = graph.addNode(x, y, currentTable);
-        Text lbl;
-        if (currentTable == TableType.K) {
-         // เก็บ kitchenId แต่ไม่เพิ่มตัวนับ
-            graph.setKitchenId(n.id());
-            lbl = new Text("K");
-        } else {
-         // จับค่าเดิมก่อน increment เพื่อให้ไม่กระโดด
-            int num = nextTableNumber++;
-            graph.tableIds().put(n.id(), num);
-            lbl = new Text(currentTable + "-" + num);
-        }
-        
-        StackPane nodeGroup = new StackPane();
-        nodeGroup.setTranslateX(x-(CELL_SIZE*0.35));
-        nodeGroup.setTranslateY(y-(CELL_SIZE*0.35));
-
         Circle circ = new Circle(x, y, CELL_SIZE*0.35, Color.web(currentTable.colorHex));
         circ.setStroke(Color.BLACK);
         nodeShapes.put(n, circ);
+        gridPane.getChildren().add(circ);
 
-        lbl.getStyleClass().add("table-text");
-        nodeGroup.getChildren().addAll(circ, lbl);
-        nodeShapes.put(n, circ);          // still track the circle if needed
-        gridPane.getChildren().add(nodeGroup);
-        
+        Text lbl = new Text(n.name());
+        lbl.setMouseTransparent(true);
+        lbl.setTextOrigin(javafx.geometry.VPos.CENTER);
+        // center immediately
+        javafx.application.Platform.runLater(() -> {
+            lbl.setX(x - lbl.getLayoutBounds().getWidth()/2);
+            lbl.setY(y);
+        });
+        gridPane.getChildren().add(lbl);
+
         gridState[r][c] = CellState.TABLE;
-        showStatus("Placed " + (currentTable == TableType.K ? "Kitchen" : "table " + (currentTable + "-" + graph.tableIds().get(n.id()))));
+        showStatus("Placed " + n.name());
     }
 
     private void clickTable(int c, int r) {
@@ -335,7 +323,7 @@ public class GridEditor extends HBox {
         Point2D p=new Point2D(c*CELL_SIZE+CELL_SIZE/2,r*CELL_SIZE+CELL_SIZE/2);
         if (tempCells.contains(p)) return;
         clearPreview();
-        Circle dot=new Circle(p.getX(),p.getY(),CELL_SIZE*0.1,Color.RED);
+        Circle dot=new Circle(p.getX(),p.getY(),CELL_SIZE*0.1,Color.web(currentTable.colorHex));
         dot.setMouseTransparent(true);
         previewDots.add(dot);
         gridPane.getChildren().add(dot);
@@ -369,7 +357,7 @@ public class GridEditor extends HBox {
         GraphModel.Node mid=existing!=null?existing:graph.addNode(jx,jy,currentTable);
         if(existing==null){
             graph.junctionIds().put(mid.id(),nextJunctionNumber);
-            Circle jc = new Circle(jx,jy,CELL_SIZE*0.25,Color.RED);
+            Circle jc = new Circle(jx,jy,CELL_SIZE*0.25,Color.web(currentTable.colorHex));
             jc.setStroke(Color.BLACK);
             nodeShapes.put(mid,jc);
 
@@ -411,78 +399,45 @@ public class GridEditor extends HBox {
 
     private void refreshEdges() {
         var rows = graph.edges().stream().map(e -> {
-            // 1) get our NodeInfo
-            NodeInfo aInfo = graph.getNodeInfo(e.from).orElseThrow();
-            // 2) find the actual Node so we can read its TableType
-            GraphModel.Node aNode = graph.nodes().stream()
-                .filter(n -> n.id().equals(e.from))
-                .findFirst().orElseThrow();
-            
-            // 3) build the prefix: "J" for junctions, or tableType + "." otherwise
-            String aPrefix;
-            if (aInfo.kind == NodeKind.JUNCTION) {
-                aPrefix = "J";
-            } else if (aInfo.kind == NodeKind.KITCHEN) {
-                aPrefix = "K";
-            } else {
-                aPrefix = aNode.type().toString() + "-";
-            }
-            
-            // 4) combine prefix + number
-            String sa;
-            if (aInfo.kind == NodeKind.KITCHEN) {
-                sa = "K";                             // แสดงแค่ "K"
-            } else {
-                sa = aPrefix + aInfo.number;         // "J1" หรือ "T8-1" ตามเดิม
-            }
-    
-            // repeat for the “to” side
-            NodeInfo bInfo = graph.getNodeInfo(e.to).orElseThrow();
-            GraphModel.Node bNode = graph.nodes().stream()
-                .filter(n -> n.id().equals(e.to))
-                .findFirst().orElseThrow();
-                String bPrefix;
-                if (bInfo.kind == NodeKind.JUNCTION) {
-                    bPrefix = "J";
-                } else if (bInfo.kind == NodeKind.KITCHEN) {
-                    bPrefix = "K";
-                } else {
-                    bPrefix = bNode.type().toString() + "-";
-                }
-                
-                String sb;
-                if (bInfo.kind == NodeKind.KITCHEN) {
-                    sb = "K";
-                } else {
-                    sb = bPrefix + bInfo.number;
-                }
-    
-            return new EdgeRow(sa + " <-> " + sb, e.weight + 1);
+            String sa = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
+            String sb = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
+            return new EdgeRow(sa+" <-> "+sb, e.weight+1);
         }).toList();
-    
         edgeTable.setItems(FXCollections.observableArrayList(rows));
     }
-    
 
-    private GraphModel.Node findNode(int c,int r){
-        return nodeShapes.keySet().stream().filter(n->(int)(n.x()/CELL_SIZE)==c&&(int)(n.y()/CELL_SIZE)==r).findFirst().orElse(null);
+    private GraphModel.Node findNode(int c, int r) {
+        return nodeShapes.keySet().stream()
+            .filter(n->(int)(n.x()/CELL_SIZE)==c && (int)(n.y()/CELL_SIZE)==r)
+            .findFirst().orElse(null);
     }
 
-    private void clearPreview(){
-        if(previewLine!=null)gridPane.getChildren().remove(previewLine);
-        previewLine=null;
+    private void clearPreview() {
+        if (previewLine!=null) gridPane.getChildren().remove(previewLine);
+        previewLine = null;
         previewDots.forEach(d->gridPane.getChildren().remove(d));
         previewDots.clear();
     }
-    
-    private void clearPathState(){
+
+    private void clearPathState() {
         clearPreview();
-        pathStart=null;
+        pathStart = null;
         tempCells.clear();
     }
 
-    private void style(Line ln){
+    private void style(Line ln) {
         ln.setStrokeWidth(3);
         ln.setStroke(Color.RED);
+    }
+
+    public void startSim() {
+        // iterate through every edge in the graph and dump it to the console
+        for (GraphModel.Edge e : graph.edges()) {
+            System.out.println(
+                graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name()
+              + " <-> " + graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name()
+              + ", weight: " + (e.weight + 1)
+            );
+        }
     }
 }

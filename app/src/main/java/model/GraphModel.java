@@ -13,7 +13,8 @@ import java.util.Optional;
  */
 public class GraphModel {
     /* --- Node & Edge DTOs --- */
-    public record Node(String id, double x, double y, TableType type) {}
+    public record Node(String id, String name, double x, double y, TableType type) {}
+
 
     public static class Edge {
         public final String from, to;
@@ -67,13 +68,30 @@ public class GraphModel {
     public List<Node> nodes() { return nodes; }
     public List<Edge> edges() { return edges; }
 
-    /** Create a new node (table or future junction). */
     public Node addNode(double x, double y, TableType type) {
         String newId = String.valueOf(nodes.size() + 1);
-        Node n = new Node(newId, x, y, type);
+        String newName;
+        if (type == TableType.K) {
+          // Kitchen case
+          this.kitchenId = newId;
+          newName = "K";
+        } else if (type == TableType.J) {
+          // Junction
+          int junNum = junctionIds.size() + 1;
+          junctionIds.put(newId, junNum);
+          newName = "J" + junNum;
+        } else {
+          // Normal table
+          int tableNum = tableIds.size() + 1;
+          tableIds.put(newId, tableNum);
+          newName = type.toString() + "-" + tableNum;
+        }
+        Node n = new Node(newId, newName, x, y, type);
         nodes.add(n);
         return n;
-    }
+      }
+      
+    
 
     /** Add a new undirected edge. */
     public Edge addEdge(String fromId, String toId, List<Point> cellPath) {
