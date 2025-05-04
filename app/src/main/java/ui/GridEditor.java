@@ -26,6 +26,8 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
 import model.GraphModel;
+import model.Graph;
+import model.GraphModel.Edge;
 import model.GraphModel.NodeInfo;
 import model.GraphModel.NodeKind;
 import model.TableType;
@@ -430,8 +432,53 @@ public class GridEditor extends HBox {
         ln.setStroke(Color.RED);
     }
 
+    private boolean traversePath(Graph simGraph) {
+        boolean isCompleted = true;
+    
+        // 1) Check each table, not each edge
+        for (String tableId : graph.tableIds().keySet()) {
+            // look up the Node so you can get its display name
+            GraphModel.Node tableNode = graph.nodes().stream()
+                .filter(n -> n.id().equals(tableId))
+                .findFirst()
+                .orElseThrow();
+        
+            String displayName = tableNode.name();  // “T4-1”, “T2-2”, etc.
+        
+            List<String> path = simGraph.dijkstra("K", displayName);
+            boolean reachable = path.size() >= 2
+                             && path.get(0).equals("K")
+                             && path.get(path.size()-1).equals(displayName);
+            if (!reachable) {
+                System.out.println("Table " + displayName + " is not reachable from the kitchen!");
+                isCompleted = false;
+            }
+        }
+        
+    
+        if (isCompleted) {
+            System.out.println("Graph created successfully! Begin simulation..");
+        }
+        return isCompleted;
+    }
+    
+
+
+
     public void startSim() {
         // iterate through every edge in the graph and dump it to the console
+        Graph simGraph = new Graph();
+        for (GraphModel.Edge e: graph.edges()) {
+            String srcNode = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
+            String destNode = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
+            simGraph.addEdge(srcNode, destNode, (int)e.weight);
+        }
+        if (traversePath(simGraph) == false) {
+            showStatus("ERROR: Graph not complete!");
+            return;
+        } else {
+            showStatus("Graph created successfully! Begin simulation..");
+        }
         for (GraphModel.Edge e : graph.edges()) {
             System.out.println(
                 graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name()

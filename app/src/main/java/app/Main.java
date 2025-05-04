@@ -103,10 +103,10 @@ public class Main extends Application {
         fadeIn.setFromValue(0.0);
         fadeIn.setToValue(1.0);
         fadeIn.play();
+        });
+        // เริ่ม fade out
+        fadeOut.play();
     });
-    // เริ่ม fade out
-    fadeOut.play();
-});
 
 
         stage.setScene(scene);
