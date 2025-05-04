@@ -1,41 +1,169 @@
-// sim/SimulationEngine.java
 package sim;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.stream.Collectors;
+
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.util.Duration;
 import model.ChefQueue;
 import model.Dish;
+import model.Graph;
+import model.GraphModel;
 import model.Order;
 import model.RobotQueue;
 
+/**
+ * Orchestrates order generation, cooking, and delivery using Dijkstra routing.
+ */
 public class SimulationEngine {
+    /**
+     * Listener interface for new order events.
+     */
+    public interface OrderListener {
+        void onOrderPlaced(int tableId, Dish dish);
+    }
+
+    private final List<OrderListener> orderListeners = new ArrayList<>();
+    /**
+     * Register a listener to receive order placement events.
+     */
+    public void addOrderListener(OrderListener listener) {
+        orderListeners.add(listener);
+    }
+
     private final ChefQueue[] chefs = new ChefQueue[Dish.values().length];
     private final RobotQueue robotQ = new RobotQueue();
+    private final GraphModel graphModel;
+    private Graph simGraph;
+    private final Random random = new Random();
+    private final Timeline tickTimeline;
     private boolean robotBusy = false;
-    public SimulationEngine(){
-        for(int i=0;i<chefs.length;i++) chefs[i]=new ChefQueue();
-        Timeline loop = new Timeline(new KeyFrame(Duration.seconds(1), e->tick()));
-        loop.setCycleCount(Timeline.INDEFINITE); loop.play();
+
+    public SimulationEngine(GraphModel gm) {
+        this.graphModel = gm;
+        // Initialize chef queues
+        for (int i = 0; i < chefs.length; i++) {
+            chefs[i] = new ChefQueue();
+        }
+        // Build internal Graph for pathfinding
+        buildSimGraph();
+        // Setup tick loop for cooking & delivery
+        tickTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> tick()));
+        tickTimeline.setCycleCount(Timeline.INDEFINITE);
     }
-    public void placeOrder(int tableId,Dish d){
-        chefs[d.ordinal()].enqueue(new Order(tableId,d,System.currentTimeMillis()));
+
+    /**
+     * Builds simGraph from the UI's GraphModel for Dijkstra computations.
+     */
+    private void buildSimGraph() {
+        simGraph = new Graph();
+        Map<String, String> idToName = graphModel.nodes().stream()
+            .collect(Collectors.toMap(GraphModel.Node::id, GraphModel.Node::name));
+        for (GraphModel.Edge e : graphModel.edges()) {
+            String src = idToName.get(e.from);
+            String dst = idToName.get(e.to);
+            simGraph.addEdge(src, dst, (int) e.weight);
+        }
     }
-    private void tick(){
+
+    /**
+     * Starts scheduling orders and begins the cook/serve loop.
+     */
+    public void startSimulation() {
+        scheduleTableOrders();
+        tickTimeline.play();
+    }
+
+    /**
+     * Randomizes total orders per table and schedules batches with cooldowns.
+     */
+    private void scheduleTableOrders() {
+        Map<String, Integer> ordersMap = new HashMap<>();
+        for (GraphModel.Node node : graphModel.nodes()) {
+            if (node.type().seats > 0) { // only actual tables
+                int T = node.type().seats;
+                int min = Math.max(1, T - 1);
+                int max = T + 3;
+                int total = random.nextInt(max - min + 1) + min;
+                ordersMap.put(node.id(), total);
+            }
+        }
+        for (var entry : ordersMap.entrySet()) {
+            String tableId = entry.getKey();
+            int remaining = entry.getValue();
+            while (remaining > 0) {
+                int batch = random.nextInt(Math.min(3, remaining)) + 1;
+                double cooldown = 1 + random.nextDouble() * 4; // seconds
+                scheduleOrderBatch(tableId, batch, cooldown);
+                remaining -= batch;
+            }
+        }
+    }
+
+    /**
+     * Schedules a batch of orders for a table after a delay.
+     */
+    private void scheduleOrderBatch(String tableId, int batchSize, double delaySec) {
+        Timeline tl = new Timeline(new KeyFrame(Duration.seconds(delaySec), e -> {
+            for (int i = 0; i < batchSize; i++) {
+                Dish d = Dish.values()[random.nextInt(Dish.values().length)];
+                placeOrder(tableId, d);
+            }
+        }));
+        tl.play();
+    }
+
+    /**
+     * Places an order into the chef queue and notifies listeners.
+     */
+    public void placeOrder(String tableId, Dish d) {
+        try {
+            int tableNum = Integer.parseInt(tableId);
+            Order order = new Order(tableNum, d, System.currentTimeMillis());
+            chefs[d.ordinal()].enqueue(order);
+            // Notify UI listeners
+            for (OrderListener l : orderListeners) {
+                l.onOrderPlaced(tableNum, d);
+            }
+        } catch (NumberFormatException ex) {
+            // ignore non-table IDs (e.g., kitchen/junction)
+        }
+    }
+
+    /**
+     * Tick handler: updates cooks and dispatches robot deliveries.
+     */
+    private void tick() {
         long now = System.currentTimeMillis();
-        // 1. update ทั้ง 6 คิว
-        for(ChefQueue c:chefs){
-            for(Order done: c.update(now)) robotQ.add(done);
+        // 1) Process chef queues
+        for (ChefQueue cq : chefs) {
+            for (Order done : cq.update(now)) {
+                robotQ.add(done);
+            }
         }
-        // 2. ถ้าหุ่นว่าง → รับ 3 คิว
-        if(!robotBusy && robotQ.getQueue().size()>0){
-            var trip = robotQ.dispatch(3);
-            robotBusy=true;
-            // TODO: คำนวณเวลาเดินตาม GraphModel แล้ว set robotBusy=false เมื่อถึงเวลา
+        // 2) Dispatch robot for available orders
+        if (!robotBusy && !robotQ.getQueue().isEmpty()) {
+            var queue = robotQ.getQueue();
+            ServeRobot robot = new ServeRobot(
+                simGraph,
+                graphModel.kitchenId().orElse("K"),
+                queue
+            );
+            robotBusy = true;
+            new Thread(() -> {
+                robot.serve();
+                robotBusy = false;
+            }).start();
         }
-        // TODO: แจ้ง KitchenPane (ผ่าน listener) ให้ refresh ตาราง
     }
-    // getters ให้ UI ดึงข้อมูล
-    public ChefQueue[] chefQueues(){return chefs;}
-    public RobotQueue robotQueue(){return robotQ;}
-    public boolean isRobotBusy(){return robotBusy;}
+
+    // -------- UI getters --------
+    public ChefQueue[] chefQueues() { return chefs; }
+    public RobotQueue robotQueue()    { return robotQ; }
+    public boolean isRobotBusy()       { return robotBusy; }
 }

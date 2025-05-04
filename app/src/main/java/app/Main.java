@@ -31,8 +31,8 @@ import ui.KitchenQueuePane;
 
 public class Main extends Application {
 
-    private final SimulationEngine sim = new SimulationEngine();
     private final GraphModel       gm  = new GraphModel();
+    private final SimulationEngine sim = new SimulationEngine(gm);
 
     private MediaPlayer mediaPlayer;
     private ToggleButton muteBtn;
@@ -220,6 +220,7 @@ public class Main extends Application {
         Button btn = new Button("Begin Simulation");
         btn.setOnAction(e -> {
             ed.startSim();
+            sim.startSimulation();
         });
         return btn;
     }
