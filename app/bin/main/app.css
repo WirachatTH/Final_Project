@@ -162,3 +162,10 @@
 .table-text {
   
 }
+
+/* target only our stroked-tabs TabPane */
+.stroked-tabs .tab-header-area .tab {
+  -fx-border-color: black;       /* draw a black line */
+  -fx-border-width: 0 3px 0 0;    /* top/right/bottom/left */
+  -fx-border-style: solid;
+}

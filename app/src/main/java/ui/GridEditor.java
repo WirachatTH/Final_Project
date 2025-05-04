@@ -31,6 +31,7 @@ import model.GraphModel.Edge;
 import model.GraphModel.NodeInfo;
 import model.GraphModel.NodeKind;
 import model.TableType;
+import sim.SimulationEngine;
 
 /**
  * GridEditor with explicit 2D grid-state:
@@ -76,8 +77,11 @@ public class GridEditor extends HBox {
     // Row in the edge table
     public record EdgeRow(String connection, double weight) {}
 
-    public GridEditor(GraphModel model) {
+    private final SimulationEngine sim;
+
+    public GridEditor(GraphModel model, SimulationEngine sim) {
         this.graph = model;
+        this.sim = sim;
         // init grid state
         for (int r = 0; r < CELLS; r++)
             for (int c = 0; c < CELLS; c++)
@@ -119,6 +123,7 @@ public class GridEditor extends HBox {
         graph.edges().clear();
         graph.tableIds().clear();
         graph.junctionIds().clear();
+        graph.setKitchenId(null); 
 
         // reset counters
         nextTableNumber = 1;
@@ -214,6 +219,10 @@ public class GridEditor extends HBox {
     }
 
     private void placeTable(int c, int r) {
+        if (currentTable == TableType.K && graph.kitchenId().isPresent()) {
+            showStatus("ERROR: Only one Kitchen (K) allowed!");
+            return;
+        }
         if (currentTable == null) {
             showStatus("ERROR: Have not selected table type yet.");
             return;
@@ -434,6 +443,16 @@ public class GridEditor extends HBox {
 
     private boolean traversePath(Graph simGraph) {
         boolean isCompleted = true;
+
+        // 0) ตรวจสอบว่ามี Kitchen (“K”) ในกราฟหรือไม่
+        boolean hasKitchen = graph.nodes().stream()
+        .anyMatch(n -> n.name().equals("K"));
+        if (!hasKitchen) {
+            System.out.println("ERROR: Kitchen node 'K' not found in the graph!");
+            showStatus("ERROR: Kitchen node not found!");
+            isCompleted = false;
+            return isCompleted;
+        }
     
         // 1) Check each table, not each edge
         for (String tableId : graph.tableIds().keySet()) {
@@ -478,6 +497,8 @@ public class GridEditor extends HBox {
             return;
         } else {
             showStatus("Graph created successfully! Begin simulation..");
+            //BEGIN SIMULATION HERE
+            sim.startSimulation();
         }
         for (GraphModel.Edge e : graph.edges()) {
             System.out.println(

@@ -1,21 +1,20 @@
 package sim;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+import model.ChefQueue;
+import model.Dish;
+import model.GraphModel;
+import model.Order;
+import model.RobotQueue;
+import model.Graph;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
-
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.util.Duration;
-import model.ChefQueue;
-import model.Dish;
-import model.Graph;
-import model.GraphModel;
-import model.Order;
-import model.RobotQueue;
 
 /**
  * Orchestrates order generation, cooking, and delivery using Dijkstra routing.
@@ -166,4 +165,11 @@ public class SimulationEngine {
     public ChefQueue[] chefQueues() { return chefs; }
     public RobotQueue robotQueue()    { return robotQ; }
     public boolean isRobotBusy()       { return robotBusy; }
+
+    /**
+     * Expose the underlying GraphModel for UI components.
+     */
+    public GraphModel getGraphModel() {
+        return graphModel;
+    }
 }

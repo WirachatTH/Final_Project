@@ -77,7 +77,7 @@ public class Main extends Application {
         fadeOut.setOnFinished(evt -> {
 
         // 2) สร้าง GridEditor + TabPane ตามเดิม
-        GridEditor edit = new GridEditor(gm);
+        GridEditor edit = new GridEditor(gm, sim);
         Label status = new Label("พร้อมใช้งาน");
         edit.setStatusTarget(status);
         VBox topBar = new VBox(buildToolbar(edit), status);
@@ -220,7 +220,6 @@ public class Main extends Application {
         Button btn = new Button("Begin Simulation");
         btn.setOnAction(e -> {
             ed.startSim();
-            sim.startSimulation();
         });
         return btn;
     }

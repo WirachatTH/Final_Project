@@ -1,111 +1,130 @@
 package ui;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.Separator;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
-import model.ChefQueue;
-import model.Dish;
+import model.GraphModel;
+import model.GraphModel.NodeKind;
 import model.Order;
+import model.Dish;
+import model.ChefQueue;
 import sim.SimulationEngine;
 
+import java.util.*;
+
+/**
+ * Displays separate queues per Dish type in tabs, and logs new orders.
+ */
 public class KitchenQueuePane extends VBox {
     private final SimulationEngine sim;
-    private final TableView<Row> table = new TableView<>();
-    private final Label robotStatus = new Label();
+    private final GraphModel graphModel;
     private final ListView<String> orderLog = new ListView<>();
+    private final TabPane dishTabs = new TabPane();
+    private final Label robotStatus = new Label();
 
-    /**
-     * DTO for table rows.
-     */
-    public record Row(String table, String dish, String status) {}
+    /** Represents a row in a dish-specific table. */
+    public record DishRow(String table, String status) {}
 
     public KitchenQueuePane(SimulationEngine sim) {
         this.sim = sim;
+        this.graphModel = sim.getGraphModel();
         setSpacing(8);
 
-        // Register listener for new orders
+        // Listen for new orders
         sim.addOrderListener((tableId, dish) ->
             Platform.runLater(() ->
-                orderLog.getItems().add("Table " + tableId + " ordered " + dish.name())
+                orderLog.getItems().add("Table " + getNodeName(tableId) + " ordered " + dish.name())
             )
         );
 
-        // Define table columns
-        TableColumn<Row,String> c1 = new TableColumn<>("Table");
-        c1.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().table()));
-        TableColumn<Row,String> c2 = new TableColumn<>("Dish");
-        c2.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().dish()));
-        TableColumn<Row,String> c3 = new TableColumn<>("Remaining(s)");
-        c3.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().status()));
-        table.getColumns().addAll(c1, c2, c3);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // Create one tab per Dish type
+        for (Dish d : Dish.values()) {
+            TableView<DishRow> tv = new TableView<>();
+            TableColumn<DishRow, String> colTable = new TableColumn<>("Table");
+            colTable.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().table()));
+            TableColumn<DishRow, String> colStatus = new TableColumn<>("Status");
+            colStatus.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().status()));
+            tv.getColumns().addAll(colTable, colStatus);
+            tv.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            VBox.setVgrow(tv, Priority.ALWAYS);
 
-        // Allow table and log to grow vertically
+            Tab tab = new Tab(d.name(), tv);
+            tab.setClosable(false);
+            dishTabs.getTabs().add(tab);
+            dishTabs.getStyleClass().add("stroked-tabs");
+
+        }
+
+        // Expand orderLog and dishTabs vertically
         VBox.setVgrow(orderLog, Priority.ALWAYS);
-        VBox.setVgrow(table, Priority.ALWAYS);
+        VBox.setVgrow(dishTabs, Priority.ALWAYS);
+        
 
-        // Layout
         getChildren().addAll(
-            new Label("Order Events"),
-            orderLog,
-            new Separator(),
-            new Label("Kitchen Queues"),
-            table,
+            new Label("Order Events"), orderLog,
+            new Separator(), new Label("Kitchen Queues"), dishTabs,
             robotStatus
         );
 
-        // Refresh loop
+        // Refresh every second
         Timeline tl = new Timeline(new KeyFrame(Duration.seconds(1), e -> refresh()));
-        tl.setCycleCount(Animation.INDEFINITE);
+        tl.setCycleCount(Timeline.INDEFINITE);
         tl.play();
     }
 
     private void refresh() {
         long now = System.currentTimeMillis();
-        List<Row> rows = new ArrayList<>();
-
-        // 1. Chef queues
-        for (Dish d : Dish.values()) {
-            ChefQueue cq = sim.chefQueues()[d.ordinal()];
+    
+        // Update each dish tab
+        for (int i = 0; i < Dish.values().length; i++) {
+            Dish d = Dish.values()[i];
+            @SuppressWarnings("unchecked")
+            TableView<DishRow> tv = (TableView<DishRow>) dishTabs.getTabs().get(i).getContent();
+            List<DishRow> rows = new ArrayList<>();
+    
+            // Chef queue entries with countdown
+            ChefQueue cq = sim.chefQueues()[i];
+            long remainMs = cq.getFinishTimeMs() - now;
+            long remainSec = remainMs > 0 ? (remainMs + 999) / 1000 : 0;  // round up, clamp at 0
             int idx = 0;
-            long remain = cq.getFinishTimeMs() - now;
             for (Order o : cq.getQueueReadonly()) {
                 String status = (idx == 0)
-                    ? String.valueOf(Math.max(remain/1000, 0))
+                    ? String.valueOf(remainSec)
                     : "waiting";
-                rows.add(new Row(
-                    String.valueOf(o.tableNumber()),
-                    d.name(),
-                    status
-                ));
+                rows.add(new DishRow(getNodeName(o.tableNumber()), status));
                 idx++;
             }
+    
+            // Robot queue entries for this dish
+            for (Order o : sim.robotQueue().getQueue()) {
+                if (o.dish() == d) {
+                    rows.add(new DishRow(getNodeName(o.tableNumber()), "ready"));
+                }
+            }
+    
+            tv.setItems(FXCollections.observableArrayList(rows));
         }
-        // 2. Robot queue
-        for (Order o : sim.robotQueue().getQueue()) {
-            rows.add(new Row(
-                String.valueOf(o.tableNumber()),
-                o.dish().name(),
-                "ready"
-            ));
-        }
-        robotStatus.setText(
-            sim.isRobotBusy() ? "Robot: BUSY" : "Robot: IDLE"
-        );
-        table.setItems(FXCollections.observableArrayList(rows));
+    
+        robotStatus.setText(sim.isRobotBusy() ? "Robot: BUSY" : "Robot: IDLE");
+    }
+    
+    /**
+     * Map numeric tableId to its GraphModel node name (e.g., "T2-1").
+     */
+    private String getNodeName(int tableId) {
+        return graphModel.nodes().stream()
+            .filter(n -> graphModel.getNodeInfo(n.id())
+                .filter(info -> info.kind == NodeKind.TABLE && info.number == tableId)
+                .isPresent()
+            )
+            .findFirst()
+            .map(GraphModel.Node::name)
+            .orElse(String.valueOf(tableId));
     }
 }

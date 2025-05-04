@@ -69,12 +69,15 @@ public class GraphModel {
     public List<Edge> edges() { return edges; }
 
     public Node addNode(double x, double y, TableType type) {
+        // Prevent multiple kitchens
+        if (type == TableType.K && this.kitchenId != null) {
+            throw new IllegalStateException("Only one Kitchen (K) is allowed.");
+        }
         String newId = String.valueOf(nodes.size() + 1);
         String newName;
         if (type == TableType.K) {
-          // Kitchen case
-          this.kitchenId = newId;
-          newName = "K";
+            this.kitchenId = newId;
+            newName = "K";
         } else if (type == TableType.J) {
           // Junction
           int junNum = junctionIds.size() + 1;
