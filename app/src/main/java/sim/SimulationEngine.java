@@ -1,20 +1,25 @@
 package sim;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+import java.util.Optional;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.util.Duration;
 import model.ChefQueue;
 import model.Dish;
+import model.Graph;
 import model.GraphModel;
+import model.GraphModel.NodeKind;
 import model.Order;
 import model.RobotQueue;
-import model.Graph;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates order generation, cooking, and delivery using Dijkstra routing.
@@ -24,7 +29,7 @@ public class SimulationEngine {
      * Listener interface for new order events.
      */
     public interface OrderListener {
-        void onOrderPlaced(int tableId, Dish dish);
+               void onOrderPlaced(int tableId, Dish dish);
     }
 
     private final List<OrderListener> orderListeners = new ArrayList<>();
@@ -121,17 +126,22 @@ public class SimulationEngine {
      * Places an order into the chef queue and notifies listeners.
      */
     public void placeOrder(String tableId, Dish d) {
-        try {
-            int tableNum = Integer.parseInt(tableId);
+        // Lookup the NodeInfo so we can get the real table index
+        Optional<GraphModel.NodeInfo> info = graphModel.getNodeInfo(tableId);
+
+        // Only enqueue real TABLE nodes
+        if (info.isPresent() && info.get().kind == NodeKind.TABLE) {
+            int tableNum = info.get().number;  // <-- the correct "1", "2", "3", etc.
             Order order = new Order(tableNum, d, System.currentTimeMillis());
             chefs[d.ordinal()].enqueue(order);
-            // Notify UI listeners
+
+            // Notify UI & log
+            System.out.println("[ORDER] Table " + tableNum + " → " + d.name());
             for (OrderListener l : orderListeners) {
                 l.onOrderPlaced(tableNum, d);
             }
-        } catch (NumberFormatException ex) {
-            // ignore non-table IDs (e.g., kitchen/junction)
         }
+        // else ignore kitchens / junctions
     }
 
     /**
@@ -143,16 +153,24 @@ public class SimulationEngine {
         for (ChefQueue cq : chefs) {
             for (Order done : cq.update(now)) {
                 robotQ.add(done);
+                System.out.println("[COOKED] " 
+                    + done.dish().name() 
+                    + " for Table " + done.tableNumber());
             }
         }
         // 2) Dispatch robot for available orders
         if (!robotBusy && !robotQ.getQueue().isEmpty()) {
             var queue = robotQ.getQueue();
+            List<Order> trip = robotQ.dispatch(3);
+            System.out.println("[DISPATCH] Robot taking " + trip.size() + " orders: " + trip.stream().map(o -> o.dish().name() + "→T" + o.tableNumber()).collect(Collectors.joining(", ")));
+            Queue<Order> tripQueue = new ArrayDeque<>(trip);
+            
             ServeRobot robot = new ServeRobot(
                 simGraph,
                 graphModel.kitchenId().orElse("K"),
                 queue
             );
+            
             robotBusy = true;
             new Thread(() -> {
                 robot.serve();

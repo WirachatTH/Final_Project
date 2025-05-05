@@ -2,16 +2,16 @@
 package model;
 
 public enum Dish {
-    Iced_Chrysanthemum_Tea("Chrysanthemum Tea", 3),
-    Water("Water", 2),
-    Chinese_Herbal_Drink("Chinese Herbal Drink", 5),
-    Spicy_Stir_Fried_Chicken("Spicy Stir-Fried Chicken", 8),
-    Yangzhou_Fried_Rice("Yangzhou Fried Rice", 6),
-    Szechuan_Tom_Yum("Szechuan Tom Yum", 7),
-    Wonton_Soup("Wonton Soup", 6),
-    Mango_Pudding("Mango Pudding", 5),
-    Sesame_Balls("Sesame Balls", 4),
-    Egg_Tart("Egg Tart", 6);
+    Iced_Chrysanthemum_Tea("Chrysanthemum Tea", 20),
+    Water("Water", 10),
+    Chinese_Herbal_Drink("Chinese Herbal Drink", 15),
+    Spicy_Stir_Fried_Chicken("Spicy Stir-Fried Chicken", 60),
+    Yangzhou_Fried_Rice("Yangzhou Fried Rice", 60),
+    Szechuan_Tom_Yum("Szechuan Tom Yum", 70),
+    Wonton_Soup("Wonton Soup", 55),
+    Mango_Pudding("Mango Pudding", 45),
+    Sesame_Balls("Sesame Balls", 40),
+    Egg_Tart("Egg Tart", 35);
 
     public final String name;
     private final int cookSec;           // เปลี่ยนเป็น private ให้เข้าถึงผ่าน getter
