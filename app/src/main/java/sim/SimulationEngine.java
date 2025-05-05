@@ -21,6 +21,15 @@ import model.GraphModel.NodeKind;
 import model.Order;
 import model.RobotQueue;
 
+import java.util.ArrayDeque;
+import java.util.List;
+import java.util.Queue;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import model.GraphModel;
+import model.GraphModel.NodeInfo;
+import model.GraphModel.NodeKind;
+
 /**
  * Orchestrates order generation, cooking, and delivery using Dijkstra routing.
  */
@@ -81,6 +90,19 @@ public class SimulationEngine {
     public void startSimulation() {
         scheduleTableOrders();
         tickTimeline.play();
+    }
+
+    private String getTableNodeName(int tableNumber) {
+        return graphModel.nodes().stream()
+            .filter(n -> {
+                Optional<GraphModel.NodeInfo> info = graphModel.getNodeInfo(n.id());
+                return info.isPresent()
+                    && info.get().kind == GraphModel.NodeKind.TABLE
+                    && info.get().number == tableNumber;
+            })
+            .findFirst()
+            .map(GraphModel.Node::name)
+            .orElse("T?");  // fallback
     }
 
     /**
@@ -149,28 +171,52 @@ public class SimulationEngine {
      */
     private void tick() {
         long now = System.currentTimeMillis();
-        // 1) Process chef queues
+    
+        // 1) Process chefs: move any finished orders into the robot queue
         for (ChefQueue cq : chefs) {
             for (Order done : cq.update(now)) {
                 robotQ.add(done);
                 System.out.println("[COOKED] " 
                     + done.dish().name() 
-                    + " for Table " + done.tableNumber());
+                    + " for Table " 
+                    + done.tableNumber());
             }
         }
-        // 2) Dispatch robot for available orders
+    
+        // 2) Dispatch robot if it’s free and there are ready dishes
         if (!robotBusy && !robotQ.getQueue().isEmpty()) {
-            var queue = robotQ.getQueue();
             List<Order> trip = robotQ.dispatch(3);
-            System.out.println("[DISPATCH] Robot taking " + trip.size() + " orders: " + trip.stream().map(o -> o.dish().name() + "→T" + o.tableNumber()).collect(Collectors.joining(", ")));
+    
+            // Build a log string like "Tea from T2-3, Egg Tart from T4-1"
+            String dispatchLog = trip.stream()
+                .map(o -> o.dish().name() 
+                    + " from " 
+                    + getTableNodeName(o.tableNumber()))
+                .collect(Collectors.joining(", "));
+            System.out.println("[DISPATCH] Robot taking " 
+                + trip.size() 
+                + " orders: " 
+                + dispatchLog);
+    
+            // Hand off to ServeRobot
             Queue<Order> tripQueue = new ArrayDeque<>(trip);
-            
+            //  ▸ Look up the actual “K” node name, not its internal ID
+            String kId = graphModel.kitchenId().orElseThrow();
+            String kitchenName = graphModel.nodes().stream()
+                .filter(n -> n.id().equals(kId))
+                .findFirst()
+                .map(GraphModel.Node::name)
+                .orElse("K");
+
+            //  ▸ Now pass the human‐facing name into ServeRobot
             ServeRobot robot = new ServeRobot(
                 simGraph,
-                graphModel.kitchenId().orElse("K"),
-                queue
+                graphModel,
+                kitchenName,
+                tripQueue
             );
-            
+
+
             robotBusy = true;
             new Thread(() -> {
                 robot.serve();

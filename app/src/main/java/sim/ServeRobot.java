@@ -3,9 +3,14 @@ package sim;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import model.Graph;
+import model.GraphModel;
+import model.GraphModel.Node;
+import model.GraphModel.NodeInfo;
+import model.GraphModel.NodeKind;
 import model.Order;
 
 /**
@@ -13,11 +18,13 @@ import model.Order;
  */
 public class ServeRobot {
     private final Graph graph;
+    private final GraphModel graphModel;
     private final String kitchenNode;
     private final Queue<Order> serveQueue;
 
-    public ServeRobot(Graph graph, String kitchenNode, Queue<Order> serveQueue) {
+    public ServeRobot(Graph graph, GraphModel graphModel, String kitchenNode, Queue<Order> serveQueue) {
         this.graph = graph;
+        this.graphModel = graphModel;
         this.kitchenNode = kitchenNode;
         this.serveQueue = serveQueue;
     }
@@ -27,7 +34,7 @@ public class ServeRobot {
      */
     public void serve() {
         System.out.println("[ROBOT] Starting delivery run...");
-        
+
         // 1) Collect up to 3 orders
         List<Order> batch = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
@@ -40,11 +47,11 @@ public class ServeRobot {
             return;
         }
 
-        // Log dispatched orders
+        // Log dispatched orders with true node names
         String ordersList = batch.stream()
-            .map(o -> o.dish().name() + ">T" + o.tableNumber())
+            .map(o -> o.dish().name() + " from " + lookupNodeName(o.tableNumber()))
             .collect(Collectors.joining(", "));
-        System.out.println("[ROBOT] Dispatching orders: " + ordersList);
+        System.out.println("[DISPATCH] Robot taking " + batch.size() + " orders: " + ordersList);
 
         // 2) Compute full path: kitchen -> each table -> kitchen
         List<String> fullPath = new ArrayList<>();
@@ -52,7 +59,8 @@ public class ServeRobot {
         fullPath.add(current);
 
         for (Order o : batch) {
-            String dest = String.valueOf(o.tableNumber());
+            String dest = lookupNodeName(o.tableNumber());
+            System.out.println("[DEBUG] dijkstra from=" + current + " to=" + dest);
             List<String> segment = graph.dijkstra(current, dest);
             if (segment.size() > 1) {
                 fullPath.addAll(segment.subList(1, segment.size()));
@@ -61,7 +69,6 @@ public class ServeRobot {
                 System.err.println("[ROBOT] Error: No path from " + current + " to " + dest);
             }
         }
-        // Return to kitchen
         List<String> back = graph.dijkstra(current, kitchenNode);
         if (back.size() > 1) {
             fullPath.addAll(back.subList(1, back.size()));
@@ -72,8 +79,22 @@ public class ServeRobot {
 
         // 4) Print delivery summary and completion
         String delivered = batch.stream()
-            .map(o -> "T" + o.tableNumber())
+            .map(o -> lookupNodeName(o.tableNumber()))
             .collect(Collectors.joining(", "));
         System.out.println("[ROBOT] Delivered to: " + delivered + "; returning to kitchen.");
+    }
+
+    /**
+     * Lookup the node name (e.g., "T4-2") for the given table index.
+     * Falls back to the numeric index if not found or not a TABLE node.
+     */
+    private String lookupNodeName(int tableNumber) {
+        for (Node node : graphModel.nodes()) {
+            Optional<NodeInfo> infoOpt = graphModel.getNodeInfo(node.id());
+            if (infoOpt.isPresent() && infoOpt.get().kind == NodeKind.TABLE && infoOpt.get().number == tableNumber) {
+                return node.name();
+            }
+        }
+        return String.valueOf(tableNumber);
     }
 }
