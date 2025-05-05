@@ -3,6 +3,8 @@ package model;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
+
 public class Graph {
     private Map<String, List<Edge>> adjacencyList = new HashMap<>();
 
@@ -17,6 +19,12 @@ public class Graph {
 
     // คำนวณเส้นทางที่สั้นที่สุดจาก src ไปยัง dest ด้วย Dijkstra's Algorithm
     public List<String> dijkstra(String start, String end) {
+        System.err.println("[DIJKSTRA] Keys in adjacencyList: " + adjacencyList.keySet());
+        System.err.println("[DIJKSTRA] Checking for start=" + start + ", end=" + end);
+        if (!adjacencyList.containsKey(start) || !adjacencyList.containsKey(end)) {
+            System.err.println("[DIJKSTRA] Missing node: start=" + start + ", end=" + end);
+            return Collections.emptyList();
+        }
         Map<String, Integer> distances = new HashMap<>();
         Map<String, String> previousNodes = new HashMap<>();
         PriorityQueue<Edge> pq = new PriorityQueue<>(Comparator.comparingInt(Edge::getWeight));
@@ -35,7 +43,7 @@ public class Graph {
 
             if (currentNode.equals(end)) break;
 
-            for (Edge edge : adjacencyList.get(currentNode)) {
+            for (Edge edge : adjacencyList.getOrDefault(currentNode, Collections.emptyList())) {
                 String neighbor = edge.getDest();
                 int newDist = distances.get(currentNode) + edge.getWeight();
 
@@ -86,6 +94,18 @@ public class Graph {
     return adjacencyList.values().stream()
         .flatMap(List::stream)
         .collect(Collectors.toList());
-}
+    }
+
+    /** 
+     * Return the weight of the edge from src → dest, or throw if none exists.
+     */
+    public double getWeight(String src, String dest) {
+        for (Edge e : adjacencyList.getOrDefault(src, Collections.emptyList())) {
+            if (e.getDest().equals(dest)) {
+                return e.getWeight();
+            }
+        }
+        throw new IllegalArgumentException("No edge from " + src + " to " + dest);
+    }
 
 }

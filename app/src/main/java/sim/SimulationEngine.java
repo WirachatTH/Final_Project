@@ -63,8 +63,8 @@ public class SimulationEngine {
         for (int i = 0; i < chefs.length; i++) {
             chefs[i] = new ChefQueue();
         }
-        // Build internal Graph for pathfinding
-        buildSimGraph();
+        // // Build internal Graph for pathfinding
+        // buildSimGraph();
         // Setup tick loop for cooking & delivery
         tickTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> tick()));
         tickTimeline.setCycleCount(Timeline.INDEFINITE);
@@ -88,6 +88,8 @@ public class SimulationEngine {
      * Starts scheduling orders and begins the cook/serve loop.
      */
     public void startSimulation() {
+        // (Re)build the pathfinding graph *now* that the UI graph is complete
+        buildSimGraph();
         scheduleTableOrders();
         tickTimeline.play();
     }
