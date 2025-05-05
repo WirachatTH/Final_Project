@@ -28,6 +28,7 @@ import model.TableType;
 import sim.SimulationEngine;
 import ui.GridEditor;
 import ui.KitchenQueuePane;
+import ui.RobotSimulationPane;
 
 public class Main extends Application {
 
@@ -87,10 +88,18 @@ public class Main extends Application {
         layoutRoot.getStyleClass().add("main-background");
         Tab tabLayout = new Tab("Restaurant Layout", layoutRoot);
         tabLayout.setClosable(false);
+        
         KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
         Tab tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
         tabKitchen.setClosable(false);
-        TabPane tabs = new TabPane(tabLayout, tabKitchen);
+        
+        // Create new Robot Simulation tab
+        RobotSimulationPane robotSimPane = new RobotSimulationPane(sim);
+        Tab tabRobotSim = new Tab("Robot Simulation", robotSimPane);
+        tabRobotSim.setClosable(false);
+        
+        // Add the new tab to the TabPane
+        TabPane tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
         tabs.getStyleClass().add("tab-pane");
         tabs.setOpacity(0); // เริ่มต้นให้โปร่งใส เพื่อเตรียม fade in
 
