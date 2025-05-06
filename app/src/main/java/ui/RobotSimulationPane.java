@@ -141,21 +141,24 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         
         // Status label
         statusLabel = new Label("Waiting for simulation to start...");
+        statusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         
         // Initial placeholder
         Label placeholder = new Label("Simulation not started yet.\nDesign your restaurant layout and start the simulation to see robot movement.");
         placeholder.setAlignment(Pos.CENTER);
-        placeholder.setStyle("-fx-font-size: 16px;");
+        placeholder.setStyle("-fx-font-size: 32px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold");
         
         // Timer label
         timerLabel = new Label("Timer: 00:00");
-        timerLabel.setStyle("-fx-font-weight: bold;");
+        timerLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
 
         // Layout
         VBox infoBox = new VBox(10);
         infoBox.setPadding(new Insets(10));
+        Label cargo = new Label("Robot Cargo:");
+        cargo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         infoBox.getChildren().addAll(
-            new Label("Robot Cargo:"), 
+            cargo, 
             cargoTable,
             new HBox(10, statusLabel, timerLabel) // Timer next to status
         );
@@ -198,18 +201,18 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             // Reset timer label
             timerLabel.setText("Timer: 00:00");
             
-            // Reset the robot position to kitchen (if kitchen exists)
-            String kitchenId = graphModel.kitchenId().orElse(null);
-            if (kitchenId != null) {
-                GraphModel.Node kitchen = findNode(kitchenId);
-                if (kitchen != null && robotDot != null) {
-                    robotDot.setCenterX(kitchen.x());
-                    robotDot.setCenterY(kitchen.y());
-                }
-            }
+            // Remove the grid and add back the placeholder
+            // THIS IS THE KEY FIX:
+            setCenter(null); // First remove the current center content
             
-            // Rebuild the grid to remove any duplicated elements
-            rebuildGrid();
+            // Create and set the placeholder
+            Label placeholder = new Label("Simulation not started yet.\nDesign your restaurant layout and start the simulation to see robot movement.");
+            placeholder.setAlignment(Pos.CENTER);
+            placeholder.setStyle("-fx-font-size: 32px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold");
+            setCenter(placeholder);
+            
+            // Reset the initialized flag so next time simulation starts it will rebuild the grid
+            initialized = false;
         });
     }
     
@@ -483,8 +486,8 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         for (int i = 0; i <= CELLS; i++) {
             Line h = new Line(0, i * CELL_SIZE, CELLS * CELL_SIZE, i * CELL_SIZE);
             Line v = new Line(i * CELL_SIZE, 0, i * CELL_SIZE, CELLS * CELL_SIZE);
-            h.setStroke(Color.LIGHTGRAY);
-            v.setStroke(Color.LIGHTGRAY);
+            h.setStroke(Color.BLACK);
+            v.setStroke(Color.BLACK);
             gridPane.getChildren().addAll(h, v);
         }
     }

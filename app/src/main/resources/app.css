@@ -83,14 +83,18 @@
 .grid-editor-root {
   -fx-background-color: linear-gradient(
       to bottom right,
-      rgba(255,215,0,0.2),
-      rgba(178,34,34,0.2)
+      #e6e0ae,
+      #dfd89a
   );
 }
 
 /* transparent rectangles for hover+shadow */
 .grid-cell {
-  -fx-background-color: #FFF5E1;
+  -fx-background-color: linear-gradient(
+      to bottom right,
+      #e6e0ae,
+      #dfd89a
+  );
   -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 2, 0.5, 0, 1);
 }
 
@@ -106,11 +110,6 @@
   -fx-fill: rgba(255,215,0,0.4);
   -fx-stroke-width: 2;
 }
-.table-T2  { -fx-stroke: #FFD700; }  /* light gold */
-.table-T4  { -fx-stroke: #EEC900; }  /* goldenrod */
-.table-T6  { -fx-stroke: #DAA520; }  /* darker goldenrod */
-.table-T8  { -fx-stroke: #CD950C; }  /* peru/golden */
-.table-T10 { -fx-stroke: #B8860B; }  /* dark goldenrod */
 
 /* ======= Other UI Styles ======= */
 .tooltip {
@@ -131,10 +130,12 @@
 .table-view {
   -fx-border-color: #8B0000;
   -fx-border-width: 2;
-  -fx-background-color: #FFF5E1;
+  -fx-background-color: #e6e0ae;
+  -fx-control-inner-background: #e6e0ae;
 }
+
 .table-view .column-header-background {
-  -fx-background-color: #8B0000;
+  -fx-background-color: #ee6146;
 }
 .table-view .column-header,
 .table-view .table-row-cell {
@@ -168,4 +169,19 @@
   -fx-border-color: black;       /* draw a black line */
   -fx-border-width: 0 3px 0 0;    /* top/right/bottom/left */
   -fx-border-style: solid;
+}
+
+/* Paint every TableView header bar red */
+.table-view .column-header-background {
+  -fx-background-color: #FF6347 !important;
+}
+
+/* Paint each header cell red, too */
+.table-view .column-header {
+  -fx-background-color: #FF6347 !important;
+}
+
+/* And force the text white so it’s legible */
+.table-view .column-header .label {
+  -fx-text-fill: white !important;
 }

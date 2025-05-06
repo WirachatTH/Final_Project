@@ -15,6 +15,9 @@ import model.Order;
 import model.Dish;
 import model.ChefQueue;
 import sim.SimulationEngine;
+import javafx.geometry.Pos;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 
 import java.util.*;
 
@@ -51,6 +54,7 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
         // Create one tab per Dish type
         for (Dish d : Dish.values()) {
             TableView<DishRow> tv = new TableView<>();
+            tv.getStyleClass().add("kitchen-queue-table");
             TableColumn<DishRow, String> colTable = new TableColumn<>("Table");
             colTable.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().table()));
             TableColumn<DishRow, String> colStatus = new TableColumn<>("Status");
@@ -61,19 +65,23 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
 
             Tab tab = new Tab(d.name(), tv);
             tab.setClosable(false);
+            tv.getStyleClass().add("kitchen-queue-table");
             dishTabs.getTabs().add(tab);
             dishTabs.getStyleClass().add("stroked-tabs");
-
         }
 
         // Expand orderLog and dishTabs vertically
         VBox.setVgrow(orderLog, Priority.ALWAYS);
         VBox.setVgrow(dishTabs, Priority.ALWAYS);
         
-
+        Label orderEvents = new Label("Order Events");
+        Label kitchenQueues = new Label("Kitchen Queues");
+        orderEvents.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
+        kitchenQueues.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
+        orderLog.getStyleClass().add("table-view");
         getChildren().addAll(
-            new Label("Order Events"), orderLog,
-            new Separator(), new Label("Kitchen Queues"), dishTabs,
+            orderEvents, orderLog,
+            new Separator(), kitchenQueues, dishTabs,
             robotStatus
         );
 
@@ -130,7 +138,8 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
     
             tv.setItems(FXCollections.observableArrayList(rows));
         }
-    
+
+        robotStatus.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         robotStatus.setText(sim.isRobotBusy() ? "Robot: BUSY" : "Robot: IDLE");
     }
     
