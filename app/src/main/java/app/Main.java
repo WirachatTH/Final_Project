@@ -4,6 +4,7 @@ import java.net.URL;
 
 import javafx.animation.FadeTransition;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
@@ -37,6 +38,15 @@ public class Main extends Application {
 
     private MediaPlayer mediaPlayer;
     private ToggleButton muteBtn;
+    
+    // Tab references
+    private TabPane tabs;
+    private Tab tabLayout;
+    private Tab tabKitchen;
+    private Tab tabRobotSim;
+    
+    // Reference to the "Begin Simulation" button for enabling/disabling
+    private Button beginSimButton;
 
     @Override
     public void start(Stage stage) {
@@ -86,22 +96,38 @@ public class Main extends Application {
         BorderPane layoutRoot = new BorderPane(edit);
         layoutRoot.setTop(topBar);
         layoutRoot.getStyleClass().add("main-background");
-        Tab tabLayout = new Tab("Restaurant Layout", layoutRoot);
+        tabLayout = new Tab("Restaurant Layout", layoutRoot);
         tabLayout.setClosable(false);
         
         KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
-        Tab tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
+        tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
         tabKitchen.setClosable(false);
         
         // Create new Robot Simulation tab
         RobotSimulationPane robotSimPane = new RobotSimulationPane(sim);
-        Tab tabRobotSim = new Tab("Robot Simulation", robotSimPane);
+        tabRobotSim = new Tab("Robot Simulation", robotSimPane);
         tabRobotSim.setClosable(false);
         
         // Add the new tab to the TabPane
-        TabPane tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
+        tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
         tabs.getStyleClass().add("tab-pane");
         tabs.setOpacity(0); // เริ่มต้นให้โปร่งใส เพื่อเตรียม fade in
+
+        // Register the simulation completion listener to re-enable the layout tab
+        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
+            @Override
+            public void onSimulationComplete() {
+                Platform.runLater(() -> {
+                    // Re-enable the layout tab and Begin Simulation button
+                    if (tabLayout != null) {
+                        tabLayout.setDisable(false);
+                    }
+                    if (beginSimButton != null) {
+                        beginSimButton.setDisable(false);
+                    }
+                });
+            }
+        });
 
         // 3) สลับ Scene root
         scene.setRoot(wrapWithMute(tabs));
@@ -227,8 +253,29 @@ public class Main extends Application {
 
     private Button beginSim(GridEditor ed) {
         Button btn = new Button("Begin Simulation");
+        // Store reference to the button for later enabling/disabling
+        beginSimButton = btn;
+        
         btn.setOnAction(e -> {
+            // Call the original startSim method
             ed.startSim();
+            
+            // Since we can't modify the startSim method to return a value,
+            // we'll assume the simulation started if the button was clicked
+            // and handle tab management here
+            
+            // Disable the Restaurant Layout tab
+            if (tabLayout != null) {
+                tabLayout.setDisable(true);
+            }
+            
+            // Switch to the Kitchen tab (index 1)
+            if (tabs != null) {
+                tabs.getSelectionModel().select(1);
+            }
+            
+            // Disable the Begin Simulation button during simulation
+            btn.setDisable(true);
         });
         return btn;
     }

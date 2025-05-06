@@ -61,6 +61,8 @@ public class RobotSimulationPane extends BorderPane {
     private boolean initialized = false;
     private PathTransition robotAnimation;
     private boolean isAnimationRunning = false;
+
+    private Set<String> tablesToServe = new HashSet<>();
     
     // Map to track which tables have food on them - keyed by table name
     private final Map<String, Circle> foodMarkers = new HashMap<>();
@@ -164,7 +166,7 @@ public class RobotSimulationPane extends BorderPane {
      * Set up event listeners for simulation events.
      */
     private void setupEventListeners() {
-        // Listen for simulation start
+        // 4. Make sure to clear the tablesToServe set in the simulation start listener
         sim.addSimulationStartListener(new SimulationEngine.SimulationStartListener() {
             @Override
             public void onSimulationStart() {
@@ -175,8 +177,13 @@ public class RobotSimulationPane extends BorderPane {
                             initializeLayout();
                             initialized = true;
                         }
+                        // Clear any existing food markers
                         clearFoodMarkers();
+                        // Clear delivered tables set
                         deliveredTables.clear();
+                        // Clear tables to serve set
+                        tablesToServe.clear();
+                        // Reset the status label
                         statusLabel.setText("Simulation started");
                         
                         // Start the timer
@@ -210,7 +217,7 @@ public class RobotSimulationPane extends BorderPane {
             }
         });
         
-        // Listen for robot dispatches
+        // 2. When receiving orders in the dispatch, record which tables need food
         sim.addRobotDispatchListener(new SimulationEngine.RobotDispatchListener() {
             @Override
             public void onRobotDispatch(List<Order> orders, List<String> route) {
@@ -230,8 +237,20 @@ public class RobotSimulationPane extends BorderPane {
                         cargoTable.getItems().clear();
                         cargoTable.refresh();
                         
-                        // Update cargo table with new orders
+                        // IMPORTANT: Clear and rebuild the tables to serve set
+                        tablesToServe.clear();
+                        
+                        // Update cargo table with new orders and record tables to serve
                         updateCargoTable(orders);
+                        
+                        // Record which tables should receive food (from orders)
+                        for (Order order : orders) {
+                            String tableName = getNodeName(order.tableNumber());
+                            tablesToServe.add(tableName);
+                            if (DEBUG) {
+                                System.out.println("[DEBUG] Table " + tableName + " will receive food");
+                            }
+                        }
                         
                         // Start animation after a short delay
                         PauseTransition pause = new PauseTransition(Duration.millis(200));
@@ -493,9 +512,7 @@ public class RobotSimulationPane extends BorderPane {
             .orElse(String.valueOf(tableNumber));
     }
     
-    /**
-     * Direct handling of table deliveries - called when robot reaches a table
-     */
+    // 3. Modify the handleTableDelivery method to only mark tables that should receive food
     private void handleTableDelivery(String tableName) {
         // Skip if already delivered to this table in this round
         if (deliveredTables.contains(tableName)) {
@@ -504,33 +521,38 @@ public class RobotSimulationPane extends BorderPane {
         
         System.out.println("[DELIVERY] Processing delivery for table: " + tableName);
         
-        // Manually add visual food marker to the table (ALWAYS do this first)
-        addFoodToTable(tableName);
-        
-        // Check if there are any cargo items for this table
-        List<RobotCargo> deliveredItems = new ArrayList<>();
-        
-        for (RobotCargo cargo : cargoTable.getItems()) {
-            if (cargo.getTable().equals(tableName)) {
-                deliveredItems.add(cargo);
+        // Only add food marker if this table is in the tablesToServe set
+        if (tablesToServe.contains(tableName)) {
+            // Manually add visual food marker to the table
+            addFoodToTable(tableName);
+            
+            // Check if there are any cargo items for this table
+            List<RobotCargo> deliveredItems = new ArrayList<>();
+            
+            for (RobotCargo cargo : cargoTable.getItems()) {
+                if (cargo.getTable().equals(tableName)) {
+                    deliveredItems.add(cargo);
+                }
             }
-        }
-        
-        if (!deliveredItems.isEmpty()) {
-            System.out.println("[DELIVERY] Delivering " + deliveredItems.size() + " food items to " + tableName);
             
-            // Remove items from cargo table
-            cargoTable.getItems().removeAll(deliveredItems);
-            cargoTable.refresh();
-            
-            // Also notify the simulation engine (original mechanism)
-            // This is important for the simulation logic
-            sim.notifyDelivery(tableName);
+            if (!deliveredItems.isEmpty()) {
+                System.out.println("[DELIVERY] Delivering " + deliveredItems.size() + " food items to " + tableName);
+                
+                // Remove items from cargo table
+                cargoTable.getItems().removeAll(deliveredItems);
+                cargoTable.refresh();
+                
+                // Also notify the simulation engine (original mechanism)
+                // This is important for the simulation logic
+                sim.notifyDelivery(tableName);
+            } else {
+                System.out.println("[DELIVERY WARNING] No matching cargo items found for " + tableName);
+            }
         } else {
-            System.out.println("[DELIVERY WARNING] No matching cargo items found for " + tableName);
+            System.out.println("[PASS] Robot passing through table " + tableName + " (no delivery)");
         }
         
-        // Mark as delivered to avoid duplicate deliveries
+        // Mark as delivered/visited to avoid duplicate deliveries
         deliveredTables.add(tableName);
     }
     
