@@ -1,6 +1,8 @@
 package app;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import javafx.animation.FadeTransition;
 import javafx.application.Application;
@@ -9,8 +11,10 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -22,6 +26,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import model.GraphModel;
@@ -33,7 +38,7 @@ import ui.RobotSimulationPane;
 
 public class Main extends Application {
 
-    private final GraphModel       gm  = new GraphModel();
+    private final GraphModel gm = new GraphModel();
     private final SimulationEngine sim = new SimulationEngine(gm);
 
     private MediaPlayer mediaPlayer;
@@ -47,9 +52,24 @@ public class Main extends Application {
     
     // Reference to the "Begin Simulation" button for enabling/disabling
     private Button beginSimButton;
+    
+    // Fields to store simulation times history
+    private List<String> simulationTimes = new ArrayList<>();
+    private int simulationRound = 0;
+
+    // Add static instance reference to Main class
+    private static Main instance;
+
+    public static Main getInstance() {
+        return instance;
+    }
 
     @Override
     public void start(Stage stage) {
+        instance = this; // Set instance
+        // Set stage title
+        stage.setTitle("Restaurant Simulator");
+        
         // 1) Build Start Screen
         VBox startRoot = new VBox(20);
         startRoot.getStyleClass().add("start-screen");
@@ -64,7 +84,8 @@ public class Main extends Application {
         startRoot.getChildren().addAll(title, startBtn);
 
         // 2) Shared Scene + CSS
-        Scene scene = new Scene(wrapWithMute(startRoot));
+        // Create scene with reasonable initial size - will be maximized after
+        Scene scene = new Scene(wrapWithMute(startRoot), 800, 600);
         URL css = getClass().getResource("/app.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
@@ -81,39 +102,60 @@ public class Main extends Application {
 
         // 4) Start button switches root to main UI
         startBtn.setOnAction(e -> {
-        // 1) สร้าง Fade out ให้หน้า startRoot
-        FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
-        fadeOut.setFromValue(1.0);
-        fadeOut.setToValue(0.0);
-        fadeOut.setOnFinished(evt -> {
+            // 1) Create Fade out for startRoot
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
+            fadeOut.setFromValue(1.0);
+            fadeOut.setToValue(0.0);
+            fadeOut.setOnFinished(evt -> {
 
-        // 2) สร้าง GridEditor + TabPane ตามเดิม
-        GridEditor edit = new GridEditor(gm, sim);
-        Label status = new Label("พร้อมใช้งาน");
-        edit.setStatusTarget(status);
-        VBox topBar = new VBox(buildToolbar(edit), status);
-        topBar.getStyleClass().add("tool-bar");
-        BorderPane layoutRoot = new BorderPane(edit);
-        layoutRoot.setTop(topBar);
-        layoutRoot.getStyleClass().add("main-background");
-        tabLayout = new Tab("Restaurant Layout", layoutRoot);
-        tabLayout.setClosable(false);
-        
-        KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
-        tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
-        tabKitchen.setClosable(false);
-        
-        // Create new Robot Simulation tab
-        RobotSimulationPane robotSimPane = new RobotSimulationPane(sim);
-        tabRobotSim = new Tab("Robot Simulation", robotSimPane);
-        tabRobotSim.setClosable(false);
-        
-        // Add the new tab to the TabPane
-        tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
-        tabs.getStyleClass().add("tab-pane");
-        tabs.setOpacity(0); // เริ่มต้นให้โปร่งใส เพื่อเตรียม fade in
+                // 2) Create GridEditor + TabPane
+                GridEditor edit = new GridEditor(gm, sim);
+                Label status = new Label("พร้อมใช้งาน");
+                edit.setStatusTarget(status);
+                VBox topBar = new VBox(buildToolbar(edit), status);
+                topBar.getStyleClass().add("tool-bar");
+                BorderPane layoutRoot = new BorderPane(edit);
+                layoutRoot.setTop(topBar);
+                layoutRoot.getStyleClass().add("main-background");
+                tabLayout = new Tab("Restaurant Layout", layoutRoot);
+                tabLayout.setClosable(false);
+                
+                KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
+                tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
+                tabKitchen.setClosable(false);
+                
+                // Create new Robot Simulation tab
+                RobotSimulationPane robotSimPane = new RobotSimulationPane(sim);
+                tabRobotSim = new Tab("Robot Simulation", robotSimPane);
+                tabRobotSim.setClosable(false);
+                
+                // Create TabPane with all tabs
+                tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
+                tabs.getStyleClass().add("tab-pane");
+                tabs.setOpacity(0); // Start transparent for fade in
+
+                // 3) Switch Scene root
+                scene.setRoot(wrapWithMute(tabs));
+                
+                // Ensure window is on top after content change
+                stage.setAlwaysOnTop(true);
+                Platform.runLater(() -> {
+                    stage.setAlwaysOnTop(false);
+                    stage.toFront(); // Request focus and bring to front
+                });
+                
+                // 4) Fade in new content
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs);
+                fadeIn.setFromValue(0.0);
+                fadeIn.setToValue(1.0);
+                fadeIn.play();
+            });
+            // Start fade out
+            fadeOut.play();
+        });
 
         // Register the simulation completion listener to re-enable the layout tab
+        // and save simulation times
         sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
             @Override
             public void onSimulationComplete() {
@@ -125,28 +167,49 @@ public class Main extends Application {
                     if (beginSimButton != null) {
                         beginSimButton.setDisable(false);
                     }
+                    
+                    // Bring window to front to show completion
+                    stage.toFront();
+                    
+                    // Capture and store the simulation time
+                    if (tabRobotSim != null && tabRobotSim.getContent() instanceof RobotSimulationPane) {
+                        RobotSimulationPane robotPane = (RobotSimulationPane) tabRobotSim.getContent();
+                        String currentTime = robotPane.getCurrentTimerText();
+                        
+                        // Store the time with the round number
+                        simulationRound++;
+                        String timeEntry = "Round " + simulationRound + ": " + currentTime;
+                        simulationTimes.add(timeEntry);
+                        
+                        System.out.println("Saved simulation time: " + timeEntry);
+                    }
                 });
             }
         });
 
-        // 3) สลับ Scene root
-        scene.setRoot(wrapWithMute(tabs));
-        stage.setFullScreen(true);
-
-        // 4) Fade in หน้าใหม่
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs);
-        fadeIn.setFromValue(0.0);
-        fadeIn.setToValue(1.0);
-        fadeIn.play();
-        });
-        // เริ่ม fade out
-        fadeOut.play();
-    });
-
-
+        // Set up the stage
         stage.setScene(scene);
-        stage.setFullScreen(true);
+        
+        // Make the window maximized (not fullscreen)
+        stage.setMaximized(true);
+        
+        // Make sure the window appears on top when first opened
+        stage.setAlwaysOnTop(true);
+        
+        // Show the window
         stage.show();
+        
+        // After a short delay, disable always-on-top but keep window in foreground
+        Platform.runLater(() -> {
+            stage.setAlwaysOnTop(false);
+            stage.toFront(); // Ensure window is in front
+            stage.requestFocus(); // Give it focus
+        });
+    }
+
+    public void resetSimulationHistory() {
+        simulationTimes.clear();
+        simulationRound = 0;
     }
 
     /** Wraps any content in a StackPane with the mute button in bottom-right. */
@@ -194,7 +257,8 @@ public class Main extends Application {
             cancelDrawButton(ed, modeGroup),
             new Separator(),
             new Separator(),
-            beginSim(ed)
+            beginSim(ed),
+            createShowTimesButton()
         );
     }
 
@@ -260,10 +324,6 @@ public class Main extends Application {
             // Call the original startSim method
             ed.startSim();
             
-            // Since we can't modify the startSim method to return a value,
-            // we'll assume the simulation started if the button was clicked
-            // and handle tab management here
-            
             // Disable the Restaurant Layout tab
             if (tabLayout != null) {
                 tabLayout.setDisable(true);
@@ -276,8 +336,112 @@ public class Main extends Application {
             
             // Disable the Begin Simulation button during simulation
             btn.setDisable(true);
+
+            // Clear the order events in KitchenQueuePane
+            clearOrderEvents();
         });
         return btn;
+    }
+    
+    /**
+     * Clears the order events in the KitchenQueuePane
+     */
+    private void clearOrderEvents() {
+        // Find the KitchenQueuePane and clear its order log
+        if (tabKitchen != null && tabKitchen.getContent() instanceof KitchenQueuePane) {
+            KitchenQueuePane kitchenPane = (KitchenQueuePane) tabKitchen.getContent();
+            kitchenPane.clearOrderLog();
+        }
+    }
+
+    private Button createShowTimesButton() {
+        Button btn = new Button("History");
+        btn.setOnAction(e -> {
+            if (simulationTimes.isEmpty()) {
+                // Show message if no history yet
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Simulation History");
+                alert.setHeaderText("No simulation history");
+                alert.setContentText("You haven't completed any simulations yet.");
+                alert.showAndWait();
+            } else {
+                showSimulationTimesSummary();
+            }
+        });
+        return btn;
+    }
+    
+    private void showSimulationTimesSummary() {
+        // Create a dialog to show all simulation times
+        Stage dialogStage = new Stage();
+        dialogStage.initModality(Modality.APPLICATION_MODAL);
+        dialogStage.setTitle("Simulation History");
+        
+        VBox dialogRoot = new VBox(10);
+        dialogRoot.setPadding(new Insets(20));
+        dialogRoot.setAlignment(Pos.CENTER);
+        
+        Label titleLabel = new Label("Simulation Round Times");
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+
+        String averageTime = calculateAverageTime();
+        Label averageLabel = new Label("Average Time: " + averageTime);
+        averageLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        VBox timesList = new VBox(5);
+        for (String timeEntry : simulationTimes) {
+            Label timeLabel = new Label(timeEntry);
+            timesList.getChildren().add(timeLabel);
+        }
+        
+        Button closeButton = new Button("Close");
+        closeButton.setOnAction(e -> dialogStage.close());
+        
+        ScrollPane scrollPane = new ScrollPane(timesList);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(150);
+        
+        dialogRoot.getChildren().addAll(titleLabel, averageLabel, scrollPane, closeButton);
+        
+        Scene dialogScene = new Scene(dialogRoot, 300, 250);
+        dialogStage.setScene(dialogScene);
+        dialogStage.show();
+    }
+
+    private String calculateAverageTime() {
+        if (simulationTimes.isEmpty()) {
+            return "00:00";
+        }
+        
+        int totalSeconds = 0;
+        int count = 0;
+        
+        for (String timeEntry : simulationTimes) {
+            // Extract the time portion (MM:SS) from the entry
+            // Format is "Round X: MM:SS"
+            String timePart = timeEntry.substring(timeEntry.indexOf(":") + 2);
+            
+            // Split into minutes and seconds
+            String[] parts = timePart.split(":");
+            if (parts.length == 2) {
+                try {
+                    int minutes = Integer.parseInt(parts[0]);
+                    int seconds = Integer.parseInt(parts[1]);
+                    totalSeconds += (minutes * 60) + seconds;
+                    count++;
+                } catch (NumberFormatException e) {
+                    // Skip this entry if it can't be parsed
+                    System.err.println("Could not parse time: " + timePart);
+                }
+            }
+        }
+        
+        // Calculate and format average
+        int avgSeconds = totalSeconds / count;
+        int avgMinutes = avgSeconds / 60;
+        int avgRemainingSeconds = avgSeconds % 60;
+        
+        return String.format("%02d:%02d", avgMinutes, avgRemainingSeconds);
     }
 
     public static void main(String[] args) {

@@ -21,7 +21,7 @@ import java.util.*;
 /**
  * Displays separate queues per Dish type in tabs, and logs new orders.
  */
-public class KitchenQueuePane extends VBox {
+public class KitchenQueuePane extends VBox implements SimulationEngine.ResetListener {
     private final SimulationEngine sim;
     private final GraphModel graphModel;
     private final ListView<String> orderLog = new ListView<>();
@@ -33,6 +33,11 @@ public class KitchenQueuePane extends VBox {
 
     public KitchenQueuePane(SimulationEngine sim) {
         this.sim = sim;
+
+        if (sim != null) {
+            sim.addResetListener(this);
+        }
+
         this.graphModel = sim.getGraphModel();
         setSpacing(8);
 
@@ -76,6 +81,21 @@ public class KitchenQueuePane extends VBox {
         Timeline tl = new Timeline(new KeyFrame(Duration.seconds(1), e -> refresh()));
         tl.setCycleCount(Timeline.INDEFINITE);
         tl.play();
+    }
+
+    @Override
+    public void onReset() {
+        Platform.runLater(() -> {
+            // Clear the order log
+            orderLog.getItems().clear();
+            
+            // Reset all dish tables
+            for (Tab tab : dishTabs.getTabs()) {
+                @SuppressWarnings("unchecked")
+                TableView<DishRow> tv = (TableView<DishRow>) tab.getContent();
+                tv.getItems().clear();
+            }
+        });
     }
 
     private void refresh() {
@@ -126,5 +146,14 @@ public class KitchenQueuePane extends VBox {
             .findFirst()
             .map(GraphModel.Node::name)
             .orElse(String.valueOf(tableId));
+    }
+
+    /**
+     * Clears the order events log.
+     */
+    public void clearOrderLog() {
+        Platform.runLater(() -> {
+            orderLog.getItems().clear();
+        });
     }
 }

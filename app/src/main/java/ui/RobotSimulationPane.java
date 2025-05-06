@@ -43,7 +43,7 @@ import java.util.Set;
  * Visual simulation of the robot's movement and cargo.
  * ADJUSTED TIMING VERSION - Ensures food markers appear exactly when the robot reaches a table.
  */
-public class RobotSimulationPane extends BorderPane {
+public class RobotSimulationPane extends BorderPane implements SimulationEngine.ResetListener {
     private static final int CELL_SIZE = 60;
     private static final int CELLS = 8;
 
@@ -94,6 +94,11 @@ public class RobotSimulationPane extends BorderPane {
      */
     public RobotSimulationPane(SimulationEngine sim) {
         this.sim = sim;
+        // Add this pane as a reset listener
+        if (sim != null) {
+            sim.addResetListener(this);
+        }
+
         this.graphModel = sim.getGraphModel();
         
         // Grid pane for the restaurant layout visualization
@@ -161,6 +166,70 @@ public class RobotSimulationPane extends BorderPane {
         // Event listeners
         setupEventListeners();
     }
+
+    @Override
+    public void onReset() {
+        Platform.runLater(() -> {
+            // Stop any running animations
+            if (isAnimationRunning && robotAnimation != null) {
+                robotAnimation.stop();
+                isAnimationRunning = false;
+            }
+            
+            // Clear any running timers
+            stopTimer();
+            
+            // Clear food markers
+            clearFoodMarkers();
+            
+            // Clear tables to serve set
+            tablesToServe.clear();
+            
+            // Clear delivered tables set
+            deliveredTables.clear();
+            
+            // Clear cargo table
+            cargoTable.getItems().clear();
+            cargoTable.refresh();
+            
+            // Reset status label
+            statusLabel.setText("Ready for new simulation");
+            
+            // Reset timer label
+            timerLabel.setText("Timer: 00:00");
+            
+            // Reset the robot position to kitchen (if kitchen exists)
+            String kitchenId = graphModel.kitchenId().orElse(null);
+            if (kitchenId != null) {
+                GraphModel.Node kitchen = findNode(kitchenId);
+                if (kitchen != null && robotDot != null) {
+                    robotDot.setCenterX(kitchen.x());
+                    robotDot.setCenterY(kitchen.y());
+                }
+            }
+            
+            // Rebuild the grid to remove any duplicated elements
+            rebuildGrid();
+        });
+    }
+    
+    // Add a method to rebuild the grid from scratch
+    private void rebuildGrid() {
+        // Clear the grid pane
+        gridPane.getChildren().clear();
+        
+        // Redraw grid lines
+        drawGridLines();
+        
+        // Redraw all nodes (tables, kitchen, junctions)
+        for (GraphModel.Node node : graphModel.nodes()) {
+            // Redraw node (existing node drawing code)
+        }
+        
+        // Add the robot dot back
+        gridPane.getChildren().add(robotDot);
+    }
+
     
     /**
      * Set up event listeners for simulation events.
@@ -729,7 +798,7 @@ public class RobotSimulationPane extends BorderPane {
         
         // Create the animation
         PathTransition transition = new PathTransition();
-        transition.setDuration(Duration.seconds(0.75 * totalDistance)); // 1 second per unit distance
+        transition.setDuration(Duration.seconds(0.5 * totalDistance)); // 1 second per unit distance
         transition.setPath(path);
         transition.setNode(robotDot);
         transition.setCycleCount(1);
@@ -751,7 +820,7 @@ public class RobotSimulationPane extends BorderPane {
             
             // Create a pause transition that waits until it's time to deliver
             // Slightly adjust timing (subtract a tiny bit) to ensure we're exactly at the node
-            double deliveryTime = 0.75 * exactDistance;
+            double deliveryTime = 0.5 * exactDistance;
             
             System.out.println("[TIMING] Table " + tableName + " at index " + nodeIndex + 
                               ", distance: " + exactDistance + 
@@ -828,5 +897,16 @@ public class RobotSimulationPane extends BorderPane {
         int minutes = elapsedSeconds / 60;
         int seconds = elapsedSeconds % 60;
         timerLabel.setText(String.format("Timer: %02d:%02d", minutes, seconds));
+    }
+
+    public String getCurrentTimerText() {
+        // Extract just the time part (MM:SS) from the timer label
+        String labelText = timerLabel.getText();
+        if (labelText.startsWith("Timer: ")) {
+            return labelText.substring(7); // Remove "Timer: "
+        } else if (labelText.startsWith("Total time: ")) {
+            return labelText.substring(12); // Remove "Total time: "
+        }
+        return labelText;
     }
 }

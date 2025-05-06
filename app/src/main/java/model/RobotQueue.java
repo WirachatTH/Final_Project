@@ -13,4 +13,9 @@ public class RobotQueue {
         return trip;
     }
     public Queue<Order> getQueue(){return ready;}
+
+    // In RobotQueue.java
+    public void clear() {
+        ready.clear();
+    }
 }

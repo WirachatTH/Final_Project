@@ -411,10 +411,14 @@ public class SimulationEngine {
     // Add delay before checking completion
     if (System.currentTimeMillis() - simulationStartTime > 5000) {
         if (isAllComplete()) {
+            // Only notify once
             if (!simulationCompleted) {
                 simulationCompleted = true;
                 System.out.println("[SIMULATION] All orders served! Simulation complete.");
-                Platform.runLater(() -> notifySimulationComplete());
+                Platform.runLater(() -> {
+                    notifySimulationComplete();
+                    notifyTabControlListeners(); // Added this line
+                });
             }
         }
     }
@@ -430,5 +434,94 @@ public class SimulationEngine {
      */
     public GraphModel getGraphModel() {
         return graphModel;
+    }
+
+    /**
+     * TabControlListener interface for managing UI tabs when simulation completes.
+     */
+    public interface TabControlListener {
+        void onSimulationComplete();
+    }
+
+    private final List<TabControlListener> tabControlListeners = new ArrayList<>();
+
+    public void addTabControlListener(TabControlListener listener) {
+        tabControlListeners.add(listener);
+    }
+
+    private void notifyTabControlListeners() {
+        for (TabControlListener listener : tabControlListeners) {
+            listener.onSimulationComplete();
+        }
+    }
+
+
+    /**
+     * Notify listeners that the simulation has been reset.
+     */
+    private void notifyReset() {
+        Platform.runLater(() -> {
+            for (OrderListener listener : orderListeners) {
+                if (listener instanceof ResetListener) {
+                    ((ResetListener) listener).onReset();
+                }
+            }
+        });
+    }
+
+    /**
+     * Listener interface for simulation reset events.
+     */
+    public interface ResetListener {
+        void onReset();
+    }
+
+    private final List<ResetListener> resetListeners = new ArrayList<>();
+
+    /**
+     * Register a listener to receive reset events.
+     */
+    public void addResetListener(ResetListener listener) {
+        resetListeners.add(listener);
+    }
+
+    /**
+     * Notify listeners that the simulation has been reset.
+     */
+    private void notifyResetListeners() {
+        for (ResetListener listener : resetListeners) {
+            listener.onReset();
+        }
+    }
+
+    /**
+     * Resets the simulation state completely.
+     */
+    public void resetState() {
+        // Stop the timeline if it's running
+        tickTimeline.stop();
+        
+        // Reset all chef queues
+        for (ChefQueue cq : chefs) {
+            cq.clear();
+        }
+        
+        // Clear the robot queue
+        robotQ.clear();
+        
+        // Reset the robot busy state
+        robotBusy = false;
+        
+        // Reset simulation completion flag
+        simulationCompleted = false;
+        
+        // Clear any stored timestamps
+        simulationStartTime = 0;
+        lastEmptyQueueTime = 0;
+        
+        // Notify listeners about reset
+        Platform.runLater(() -> {
+            notifyResetListeners();
+        });
     }
 }

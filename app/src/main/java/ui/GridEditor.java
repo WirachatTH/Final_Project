@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import app.Main;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Point2D;
@@ -125,6 +126,10 @@ public class GridEditor extends HBox {
         graph.junctionIds().clear();
         graph.setKitchenId(null); 
 
+        if (sim != null) {
+            sim.resetState();
+        }
+
         // reset counters
         nextTableNumber = 1;
         nextJunctionNumber = 1;
@@ -140,6 +145,11 @@ public class GridEditor extends HBox {
             for (int c = 0; c < CELLS; c++) {
                 gridState[r][c] = CellState.EMPTY;
             }
+        }
+
+        Main mainApp = Main.getInstance();
+        if (mainApp != null) {
+            mainApp.resetSimulationHistory();
         }
 
         // rebuild grid and table view

@@ -59,4 +59,9 @@ public class ChefQueue {
         long startMs = Math.max(availableAtMs, head.placedAtMs());
         return startMs + head.dish().cookSec() * 1000L;
     }
+
+    public void clear() {
+        q.clear();
+        availableAtMs = 0;
+    }
 }
