@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import java.util.Optional;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.util.Duration;
 import model.ChefQueue;
 import model.Dish;
@@ -37,6 +38,9 @@ public class SimulationEngine {
     /**
      * Listener interface for new order events.
      */
+    private long simulationStartTime = 0;
+    private long lastEmptyQueueTime = 0;
+
     public interface OrderListener {
         void onOrderPlaced(int tableId, Dish dish);
     }
@@ -61,11 +65,21 @@ public class SimulationEngine {
     public interface DeliveryListener {
         void onDelivery(String tableName);
     }
+    
+    /**
+     * Listener interface for simulation completion.
+     */
+    public interface SimulationCompletionListener {
+        void onSimulationComplete();
+    }
 
     private final List<OrderListener> orderListeners = new ArrayList<>();
     private final List<SimulationStartListener> simulationStartListeners = new ArrayList<>();
     private final List<RobotDispatchListener> robotDispatchListeners = new ArrayList<>();
     private final List<DeliveryListener> deliveryListeners = new ArrayList<>();
+    private final List<SimulationCompletionListener> simulationCompletionListeners = new ArrayList<>();
+    
+    private boolean simulationCompleted = false;
 
     private static SimulationEngine instance;
 
@@ -95,6 +109,22 @@ public class SimulationEngine {
      */
     public void addDeliveryListener(DeliveryListener listener) {
         deliveryListeners.add(listener);
+    }
+    
+    /**
+     * Register a listener to receive simulation completion events.
+     */
+    public void addSimulationCompletionListener(SimulationCompletionListener listener) {
+        simulationCompletionListeners.add(listener);
+    }
+    
+    /**
+     * Notify listeners that the simulation has completed.
+     */
+    private void notifySimulationComplete() {
+        for (SimulationCompletionListener listener : simulationCompletionListeners) {
+            listener.onSimulationComplete();
+        }
     }
 
     /**
@@ -177,10 +207,12 @@ public class SimulationEngine {
      * Starts scheduling orders and begins the cook/serve loop.
      */
     public void startSimulation() {
-        // (Re)build the pathfinding graph *now* that the UI graph is complete
         buildSimGraph();
+        simulationCompleted = false;
+        simulationStartTime = System.currentTimeMillis();
+        lastEmptyQueueTime = 0;
         scheduleTableOrders();
-        notifySimulationStart(); // Notify listeners
+        notifySimulationStart();
         tickTimeline.play();
     }
 
@@ -269,72 +301,124 @@ public class SimulationEngine {
             .map(GraphModel.Node::name)
             .orElse("K");
     }
+    
+    /**
+     * Check if all orders are complete and robot is idle
+     */
+    private boolean isAllComplete() {
+        // If we just started (less than 10 seconds ago), don't consider it complete
+        if (System.currentTimeMillis() - simulationStartTime < 10000) {
+            return false;
+        }
+        
+        // Check if robot queue is empty
+        if (!robotQ.getQueue().isEmpty()) {
+            return false;
+        }
+        
+        // Check if all chef queues are empty
+        for (ChefQueue cq : chefs) {
+            if (!cq.getQueueReadonly().isEmpty()) {
+                return false;
+            }
+        }
+        
+        // Check if robot is idle
+        if (robotBusy) {
+            return false;
+        }
+        
+        // Add delay after robot is idle to ensure everything completed
+        if (lastEmptyQueueTime == 0) {
+            lastEmptyQueueTime = System.currentTimeMillis();
+            return false;
+        } else {
+            // Wait at least 2 seconds after all queues are empty
+            if (System.currentTimeMillis() - lastEmptyQueueTime > 2000) {
+                return true;
+            }
+            return false;
+        }
+    }
 
     /**
      * Tick handler: updates cooks and dispatches robot deliveries.
      */
     private void tick() {
-        long now = System.currentTimeMillis();
-    
-        // 1) Process chefs: move any finished orders into the robot queue
-        for (ChefQueue cq : chefs) {
-            for (Order done : cq.update(now)) {
-                robotQ.add(done);
-                System.out.println("[COOKED] " 
-                    + done.dish().name() 
-                    + " for Table " 
-                    + done.tableNumber());
-            }
-        }
-    
-        // 2) Dispatch robot if it's free and there are ready dishes
-        if (!robotBusy && !robotQ.getQueue().isEmpty()) {
-            List<Order> trip = robotQ.dispatch(3);
+    long now = System.currentTimeMillis();
 
-            // Add this debug print
-            System.out.println("[DEBUG] Dispatching " + trip.size() + " orders for robot");
-            for (Order o : trip) {
-                System.out.println("[DEBUG] Order: " + o.dish().name() + " for " + getTableNodeName(o.tableNumber()));
-            }
-    
-            // Build a log string like "Tea from T2-3, Egg Tart from T4-1"
-            String dispatchLog = trip.stream()
-                .map(o -> o.dish().name() 
-                    + " from " 
-                    + getTableNodeName(o.tableNumber()))
-                .collect(Collectors.joining(", "));
-            System.out.println("[DISPATCH] Robot taking " 
-                + trip.size() 
-                + " orders: " 
-                + dispatchLog);
-    
-            // Hand off to ServeRobot
-            Queue<Order> tripQueue = new ArrayDeque<>(trip);
-            String kitchenName = getKitchenNodeName();
-
-            // Create ServeRobot with reference to this SimulationEngine instance
-            ServeRobot robot = new ServeRobot(
-                simGraph,
-                graphModel,
-                kitchenName,
-                tripQueue,
-                this  // Pass the current SimulationEngine instance
-            );
-
-            // Get the route first
-            List<String> route = robot.calculateRoute();
-            
-            // Notify listeners about the dispatch with the route
-            notifyRobotDispatched(new ArrayList<>(trip), route);
-            
-            robotBusy = true;
-            
-            // Start serving in a separate thread
-            new Thread(() -> {
-                robot.serve();
-            }).start();
+    // 1) Process chefs: move any finished orders into the robot queue
+    for (ChefQueue cq : chefs) {
+        for (Order done : cq.update(now)) {
+            robotQ.add(done);
+            System.out.println("[COOKED] " 
+                + done.dish().name() 
+                + " for Table " 
+                + done.tableNumber());
         }
     }
+
+    // 2) Dispatch robot if it's free and there are ready dishes
+    if (!robotBusy && !robotQ.getQueue().isEmpty()) {
+        List<Order> trip = robotQ.dispatch(3);
+
+        // Add this debug print
+        System.out.println("[DEBUG] Dispatching " + trip.size() + " orders for robot");
+        for (Order o : trip) {
+            System.out.println("[DEBUG] Order: " + o.dish().name() + " for " + getTableNodeName(o.tableNumber()));
+        }
+
+        // Build a log string like "Tea from T2-3, Egg Tart from T4-1"
+        String dispatchLog = trip.stream()
+            .map(o -> o.dish().name() 
+                + " from " 
+                + getTableNodeName(o.tableNumber()))
+            .collect(Collectors.joining(", "));
+        System.out.println("[DISPATCH] Robot taking " 
+            + trip.size() 
+            + " orders: " 
+            + dispatchLog);
+
+        // Hand off to ServeRobot
+        Queue<Order> tripQueue = new ArrayDeque<>(trip);
+        String kitchenName = getKitchenNodeName();
+
+        // Create ServeRobot with reference to this SimulationEngine instance
+        ServeRobot robot = new ServeRobot(
+            simGraph,
+            graphModel,
+            kitchenName,
+            tripQueue,
+            this  // Pass the current SimulationEngine instance
+        );
+
+        // Get the route first
+        List<String> route = robot.calculateRoute();
+        
+        // Notify listeners about the dispatch with the route
+        notifyRobotDispatched(new ArrayList<>(trip), route);
+        
+        robotBusy = true;
+        
+        // Start serving in a separate thread
+        new Thread(() -> {
+            robot.serve();
+        }).start();
+    }
+    
+    // 3) Check if all orders are complete - ONLY IF SIMULATION IS ACTUALLY RUNNING
+    // Don't check immediately at startup, only after some time has passed
+    // Add delay before checking completion
+    if (System.currentTimeMillis() - simulationStartTime > 5000) {
+        if (isAllComplete()) {
+            if (!simulationCompleted) {
+                simulationCompleted = true;
+                System.out.println("[SIMULATION] All orders served! Simulation complete.");
+                Platform.runLater(() -> notifySimulationComplete());
+            }
+        }
+    }
+}
 
     // -------- UI getters --------
     public ChefQueue[] chefQueues() { return chefs; }

@@ -2,7 +2,9 @@ package ui;
 
 import javafx.animation.PathTransition;
 import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -13,6 +15,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -43,6 +46,11 @@ import java.util.Set;
 public class RobotSimulationPane extends BorderPane {
     private static final int CELL_SIZE = 60;
     private static final int CELLS = 8;
+
+    private Label timerLabel;
+    private Timeline timerTimeline;
+    private long startTimeMillis;
+    private int elapsedSeconds = 0;
 
     private final SimulationEngine sim;
     private final GraphModel graphModel;
@@ -132,13 +140,17 @@ public class RobotSimulationPane extends BorderPane {
         placeholder.setAlignment(Pos.CENTER);
         placeholder.setStyle("-fx-font-size: 16px;");
         
+        // Timer label
+        timerLabel = new Label("Timer: 00:00");
+        timerLabel.setStyle("-fx-font-weight: bold;");
+
         // Layout
         VBox infoBox = new VBox(10);
         infoBox.setPadding(new Insets(10));
         infoBox.getChildren().addAll(
             new Label("Robot Cargo:"), 
-            cargoTable, 
-            statusLabel
+            cargoTable,
+            new HBox(10, statusLabel, timerLabel) // Timer next to status
         );
         
         setCenter(placeholder);
@@ -163,10 +175,36 @@ public class RobotSimulationPane extends BorderPane {
                             initializeLayout();
                             initialized = true;
                         }
-                        // Clear any existing food markers
                         clearFoodMarkers();
-                        // Clear delivered tables set
                         deliveredTables.clear();
+                        statusLabel.setText("Simulation started");
+                        
+                        // Start the timer
+                        startTimer();
+                    }
+                });
+            }
+        });
+
+        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
+            @Override
+            public void onSimulationComplete() {
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (initialized && gridPane.getParent() != null) {
+                            statusLabel.setText("Simulation ends");
+                            System.out.println("[UI] Simulation completed - updating status label");
+                            
+                            // Stop the timer
+                            stopTimer();
+                            
+                            // Calculate final time and format the total elapsed time
+                            long totalElapsedSeconds = (System.currentTimeMillis() - startTimeMillis) / 1000;
+                            int minutes = (int)(totalElapsedSeconds / 60);
+                            int seconds = (int)(totalElapsedSeconds % 60);
+                            timerLabel.setText(String.format("Total time: %02d:%02d", minutes, seconds));
+                        }
                     }
                 });
             }
@@ -211,6 +249,20 @@ public class RobotSimulationPane extends BorderPane {
                 if (DEBUG) {
                     System.out.println("[DEBUG] Delivery event from ServeRobot for table: " + tableName);
                 }
+            }
+        });
+        
+        // Listen for simulation completion
+        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
+            @Override
+            public void onSimulationComplete() {
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        statusLabel.setText("Simulation ends");
+                        System.out.println("[UI] Simulation completed - updating status label");
+                    }
+                });
             }
         });
     }
@@ -427,8 +479,7 @@ public class RobotSimulationPane extends BorderPane {
         // Force refresh
         cargoTable.refresh();
     }
-    
-    /**
+        /**
      * Get the node name for a table number.
      */
     private String getNodeName(int tableNumber) {
@@ -656,7 +707,7 @@ public class RobotSimulationPane extends BorderPane {
         
         // Create the animation
         PathTransition transition = new PathTransition();
-        transition.setDuration(Duration.seconds(totalDistance)); // 1 second per unit distance
+        transition.setDuration(Duration.seconds(0.75 * totalDistance)); // 1 second per unit distance
         transition.setPath(path);
         transition.setNode(robotDot);
         transition.setCycleCount(1);
@@ -678,7 +729,7 @@ public class RobotSimulationPane extends BorderPane {
             
             // Create a pause transition that waits until it's time to deliver
             // Slightly adjust timing (subtract a tiny bit) to ensure we're exactly at the node
-            double deliveryTime = exactDistance;
+            double deliveryTime = 0.75 * exactDistance;
             
             System.out.println("[TIMING] Table " + tableName + " at index " + nodeIndex + 
                               ", distance: " + exactDistance + 
@@ -721,5 +772,39 @@ public class RobotSimulationPane extends BorderPane {
             });
             completionDelay.play();
         });
+    }
+
+    private void startTimer() {
+        // Reset timer state
+        elapsedSeconds = 0;
+        if (timerTimeline != null) {
+            timerTimeline.stop();
+        }
+        
+        // Record start time
+        startTimeMillis = System.currentTimeMillis();
+        
+        // Update timer label
+        updateTimerLabel();
+        
+        // Create and start the timer
+        timerTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            elapsedSeconds++;
+            updateTimerLabel();
+        }));
+        timerTimeline.setCycleCount(Timeline.INDEFINITE);
+        timerTimeline.play();
+    }
+
+    private void stopTimer() {
+        if (timerTimeline != null) {
+            timerTimeline.stop();
+        }
+    }
+
+    private void updateTimerLabel() {
+        int minutes = elapsedSeconds / 60;
+        int seconds = elapsedSeconds % 60;
+        timerLabel.setText(String.format("Timer: %02d:%02d", minutes, seconds));
     }
 }
