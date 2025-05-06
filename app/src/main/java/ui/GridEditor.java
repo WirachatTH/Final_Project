@@ -95,6 +95,7 @@ public class GridEditor extends HBox {
         gridPane.setPrefSize(CELLS * CELL_SIZE, CELLS * CELL_SIZE);
         drawGridLines();
         gridPane.setOnMouseClicked(this::onClick);
+        gridPane.getStyleClass().add("grid-cell");
 
         // edge table
         edgeTable = new TableView<>();
