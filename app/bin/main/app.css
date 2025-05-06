@@ -148,6 +148,8 @@
 }
 
 .path-line {
+  -fx-stroke: #f71212;
+  -fx-stroke-width: 4;
   -fx-view-order: 1;
 }
 
