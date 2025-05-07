@@ -173,6 +173,8 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
     @Override
     public void onReset() {
         Platform.runLater(() -> {
+            System.out.println("[DEBUG] Robot simulation pane reset beginning");
+            
             // Stop any running animations
             if (isAnimationRunning && robotAnimation != null) {
                 robotAnimation.stop();
@@ -202,8 +204,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             timerLabel.setText("Timer: 00:00");
             
             // Remove the grid and add back the placeholder
-            // THIS IS THE KEY FIX:
-            setCenter(null); // First remove the current center content
+            setCenter(null);
             
             // Create and set the placeholder
             Label placeholder = new Label("Simulation not started yet.\nDesign your restaurant layout and start the simulation to see robot movement.");
@@ -211,8 +212,10 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             placeholder.setStyle("-fx-font-size: 32px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold");
             setCenter(placeholder);
             
-            // Reset the initialized flag so next time simulation starts it will rebuild the grid
+            // Always set initialized to false to force rebuild
             initialized = false;
+            
+            System.out.println("[DEBUG] Robot simulation pane reset completed");
         });
     }
     
@@ -242,25 +245,24 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         sim.addSimulationStartListener(new SimulationEngine.SimulationStartListener() {
             @Override
             public void onSimulationStart() {
-                Platform.runLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!initialized) {
-                            initializeLayout();
-                            initialized = true;
-                        }
-                        // Clear any existing food markers
-                        clearFoodMarkers();
-                        // Clear delivered tables set
-                        deliveredTables.clear();
-                        // Clear tables to serve set
-                        tablesToServe.clear();
-                        // Reset the status label
-                        statusLabel.setText("Simulation started");
-                        
-                        // Start the timer
-                        startTimer();
-                    }
+                Platform.runLater(() -> {
+                    // IMPORTANT: Always fully reinitialize the layout
+                    initializeLayout();
+                    initialized = true;
+                    
+                    // Clear any existing food markers
+                    clearFoodMarkers();
+                    // Clear delivered tables set
+                    deliveredTables.clear();
+                    // Clear tables to serve set
+                    tablesToServe.clear();
+                    // Reset the status label
+                    statusLabel.setText("Simulation started");
+                    
+                    // Start the timer
+                    startTimer();
+                    
+                    System.out.println("[DEBUG] Simulation started - grid initialized");
                 });
             }
         });
@@ -274,6 +276,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                         if (initialized && gridPane.getParent() != null) {
                             statusLabel.setText("Simulation ends");
                             System.out.println("[UI] Simulation completed - updating status label");
+
                             
                             // Stop the timer
                             stopTimer();
@@ -402,8 +405,9 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
      * Initialize the layout by drawing the restaurant grid.
      */
     private void initializeLayout() {
-        // Clear placeholder
+        // Clear placeholder and ensure gridPane is empty before rebuilding
         setCenter(null);
+        gridPane.getChildren().clear();
         
         // Draw the grid lines
         drawGridLines();
@@ -445,6 +449,8 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                         
                         Line segment = new Line(prevX, prevY, cellX, cellY);
                         segment.getStyleClass().add("path-line");
+                        segment.setStrokeWidth(3); // Make sure lines are visible
+                        segment.setStroke(Color.RED); // Use consistent color
                         gridPane.getChildren().add(segment);
                         
                         prevX = cellX;
@@ -454,11 +460,15 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                     // Final segment to destination
                     Line lastSegment = new Line(prevX, prevY, dstX, dstY);
                     lastSegment.getStyleClass().add("path-line");
+                    lastSegment.setStrokeWidth(3);
+                    lastSegment.setStroke(Color.RED);
                     gridPane.getChildren().add(lastSegment);
                 } else {
                     // Direct path if no cells specified
                     Line directPath = new Line(srcX, srcY, dstX, dstY);
                     directPath.getStyleClass().add("path-line");
+                    directPath.setStrokeWidth(3);
+                    directPath.setStroke(Color.RED);
                     gridPane.getChildren().add(directPath);
                 }
             }
@@ -469,6 +479,9 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         if (kitchenId != null) {
             GraphModel.Node kitchen = findNode(kitchenId);
             if (kitchen != null) {
+                // (Re)create the robot dot to ensure it's fresh
+                robotDot = new Circle(10, Color.GREEN);
+                robotDot.setStroke(Color.BLACK);
                 robotDot.setCenterX(kitchen.x());
                 robotDot.setCenterY(kitchen.y());
                 robotDot.setVisible(true);
@@ -476,9 +489,13 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         }
         
+        // Make sure we're setting the gridPane as the center
         setCenter(gridPane);
+        
+        System.out.println("[DEBUG] Grid layout initialized with " + graphModel.nodes().size() + " nodes and " + 
+                           graphModel.edges().size() + " edges");
     }
-    
+     
     /**
      * Draw grid lines for the layout.
      */
