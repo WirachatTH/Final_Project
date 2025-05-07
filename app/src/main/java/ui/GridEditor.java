@@ -9,10 +9,12 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import app.Main;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -452,71 +454,92 @@ public class GridEditor extends HBox {
         ln.setStroke(Color.RED);
     }
 
-    private boolean traversePath(Graph simGraph) {
-        boolean isCompleted = true;
+    // Updated traversePath method in GridEditor.java
+private boolean traversePath(Graph simGraph) {
+    boolean isCompleted = true;
+    StringBuilder errorMessages = new StringBuilder();
 
-        // 0) ตรวจสอบว่ามี Kitchen (“K”) ในกราฟหรือไม่
-        boolean hasKitchen = graph.nodes().stream()
-        .anyMatch(n -> n.name().equals("K"));
-        if (!hasKitchen) {
-            System.out.println("ERROR: Kitchen node 'K' not found in the graph!");
-            showStatus("ERROR: Kitchen node not found!");
-            isCompleted = false;
-            return isCompleted;
-        }
-    
-        // 1) Check each table, not each edge
+    // 0) Check if Kitchen ("K") exists in the graph
+    Optional<String> kitchenId = graph.kitchenId();
+    if (kitchenId.isEmpty()) {
+        errorMessages.append("ERROR: Kitchen node (K) not found! Please add a Kitchen to your layout.\n");
+        isCompleted = false;
+    } else {
+        String kitchenName = graph.nodes().stream()
+            .filter(n -> n.id().equals(kitchenId.get()))
+            .findFirst()
+            .map(GraphModel.Node::name)
+            .orElse("K");
+            
+        // 1) Check each table for accessibility from kitchen
         for (String tableId : graph.tableIds().keySet()) {
-            // look up the Node so you can get its display name
             GraphModel.Node tableNode = graph.nodes().stream()
                 .filter(n -> n.id().equals(tableId))
                 .findFirst()
                 .orElseThrow();
-        
-            String displayName = tableNode.name();  // “T4-1”, “T2-2”, etc.
-        
-            List<String> path = simGraph.dijkstra("K", displayName);
+            
+            String displayName = tableNode.name();  // "T4-1", "T2-2", etc.
+            
+            List<String> path = simGraph.dijkstra(kitchenName, displayName);
             boolean reachable = path.size() >= 2
-                             && path.get(0).equals("K")
-                             && path.get(path.size()-1).equals(displayName);
+                && path.get(0).equals(kitchenName)
+                && path.get(path.size()-1).equals(displayName);
+                
             if (!reachable) {
-                System.out.println("Table " + displayName + " is not reachable from the kitchen!");
+                errorMessages.append("ERROR: Table ").append(displayName)
+                    .append(" is not reachable from the kitchen!\n");
                 isCompleted = false;
             }
         }
-        
-    
-        if (isCompleted) {
-            System.out.println("Graph created successfully! Begin simulation..");
-        }
-        return isCompleted;
     }
     
-
-
-
-    public void startSim() {
-        // iterate through every edge in the graph and dump it to the console
-        Graph simGraph = new Graph();
-        for (GraphModel.Edge e: graph.edges()) {
-            String srcNode = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
-            String destNode = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
-            simGraph.addEdge(srcNode, destNode, (int)e.weight);
-        }
-        if (traversePath(simGraph) == false) {
-            showStatus("ERROR: Graph not complete!");
-            return;
-        } else {
-            showStatus("Graph created successfully! Begin simulation..");
-            //BEGIN SIMULATION HERE
-            sim.startSimulation();
-        }
-        for (GraphModel.Edge e : graph.edges()) {
-            System.out.println(
-                graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name()
-              + " <-> " + graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name()
-              + ", weight: " + (e.weight + 1)
-            );
-        }
+    if (!isCompleted) {
+        // Show all error messages in one dialog
+        showErrorDialog("Restaurant Layout Error", errorMessages.toString());
+        System.out.println(errorMessages.toString());
+    } else {
+        System.out.println("Graph created successfully! Begin simulation...");
     }
+    
+    return isCompleted;
+}
+
+
+// Helper method to show error dialog - add this to GridEditor.java
+private void showErrorDialog(String title, String content) {
+    Platform.runLater(() -> {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText("Restaurant Layout Validation Failed");
+        alert.setContentText(content);
+        alert.showAndWait();
+    });
+}
+
+public boolean validateGraph() {
+    // Build simulation graph
+    Graph simGraph = new Graph();
+    for (GraphModel.Edge e: graph.edges()) {
+        String srcNode = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
+        String destNode = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
+        simGraph.addEdge(srcNode, destNode, (int)e.weight);
+    }
+    
+    // Run validation and return the result
+    return traversePath(simGraph);
+}
+    
+
+public boolean startSim() {
+    // Validate the graph before starting simulation
+    if (!validateGraph()) {
+        showStatus("ERROR: Restaurant layout validation failed!");
+        return false; // Return false to tell Main.java that validation failed
+    }
+    
+    // If validation passed, start the simulation
+    showStatus("Restaurant layout validated. Starting simulation...");
+    sim.startSimulation();
+    return true; // Return true to tell Main.java that validation succeeded
+}
 }

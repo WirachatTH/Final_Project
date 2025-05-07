@@ -316,14 +316,16 @@ public class Main extends Application {
     }
 
     private Button beginSim(GridEditor ed) {
-        Button btn = new Button("Begin Simulation");
-        // Store reference to the button for later enabling/disabling
-        beginSimButton = btn;
+    Button btn = new Button("Begin Simulation");
+    // Store reference to the button for later enabling/disabling
+    beginSimButton = btn;
+    
+    btn.setOnAction(e -> {
+        // Call the modified startSim method which now returns a boolean
+        boolean validationSucceeded = ed.startSim();
         
-        btn.setOnAction(e -> {
-            // Call the original startSim method
-            ed.startSim();
-            
+        // Only proceed with UI changes if validation passed
+        if (validationSucceeded) {
             // Disable the Restaurant Layout tab
             if (tabLayout != null) {
                 tabLayout.setDisable(true);
@@ -339,9 +341,12 @@ public class Main extends Application {
 
             // Clear the order events in KitchenQueuePane
             clearOrderEvents();
-        });
-        return btn;
-    }
+        }
+        // If validation failed, we do nothing - keeping the layout tab enabled
+        // and not switching tabs
+    });
+    return btn;
+}
     
     /**
      * Clears the order events in the KitchenQueuePane
