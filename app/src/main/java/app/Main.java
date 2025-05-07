@@ -97,7 +97,7 @@ public class Main extends Application {
           .toExternalForm();
         mediaPlayer = new MediaPlayer(new Media(musicPath));
         mediaPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-        mediaPlayer.setVolume(0.04);
+        mediaPlayer.setVolume(1.5);
         mediaPlayer.play();
 
         // 4) Start button switches root to main UI
