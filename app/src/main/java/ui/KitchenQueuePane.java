@@ -22,7 +22,8 @@ import javafx.scene.layout.StackPane;
 import java.util.*;
 
 /**
- * Displays separate queues per Dish type in tabs, and logs new orders.
+ * แสดงสถานะการประมวลผลคำสั่งอาหารในครัวของการจำลอง
+ * โดยแสดงคิวแยกตามประเภทจานในแท็บต่างๆ และเก็บบันทึกเหตุการณ์การสั่งอาหาร
  */
 public class KitchenQueuePane extends VBox implements SimulationEngine.ResetListener {
     private final SimulationEngine sim;
@@ -31,9 +32,15 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
     private final TabPane dishTabs = new TabPane();
     private final Label robotStatus = new Label();
 
-    /** Represents a row in a dish-specific table. */
+    /**
+     * คลาสข้อมูลสำหรับแต่ละแถวในตารางคิวของแต่ละจาน
+     * เก็บชื่อโต๊ะและสถานะปัจจุบันของคำสั่ง
+     */
     public record DishRow(String table, String status) {}
 
+    /**
+     * สร้าง KitchenQueuePane ใหม่ที่เชื่อมต่อกับ SimulationEngine
+     */
     public KitchenQueuePane(SimulationEngine sim) {
         this.sim = sim;
 
@@ -44,25 +51,31 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
         this.graphModel = sim.getGraphModel();
         setSpacing(8);
 
-        // Listen for new orders
+        // เมื่อมีคำสั่งใหม่ ให้เพิ่มบันทึกเหตุการณ์ใน orderLog
         sim.addOrderListener((tableId, dish) ->
             Platform.runLater(() ->
                 orderLog.getItems().add("Table " + getNodeName(tableId) + " ordered " + dish.name())
             )
         );
 
-        // Create one tab per Dish type
+        // สร้างแท็บแยกตามประเภทจานในเมนู
         for (Dish d : Dish.values()) {
             TableView<DishRow> tv = new TableView<>();
             tv.getStyleClass().add("kitchen-queue-table");
+
+            // คอลัมน์แสดงชื่อโต๊ะ
             TableColumn<DishRow, String> colTable = new TableColumn<>("Table");
             colTable.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().table()));
+
+            // คอลัมน์แสดงสถานะ (กำลังปรุง, พร้อมส่ง ฯลฯ)
             TableColumn<DishRow, String> colStatus = new TableColumn<>("Status");
             colStatus.setCellValueFactory(r -> new SimpleStringProperty(r.getValue().status()));
+
             tv.getColumns().addAll(colTable, colStatus);
             tv.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             VBox.setVgrow(tv, Priority.ALWAYS);
 
+            // สร้างแท็บสำหรับจานแล้วเพิ่มลงใน TabPane
             Tab tab = new Tab(d.name(), tv);
             tab.setClosable(false);
             tv.getStyleClass().add("kitchen-queue-table");
@@ -70,34 +83,40 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
             dishTabs.getStyleClass().add("stroked-tabs");
         }
 
-        // Expand orderLog and dishTabs vertically
+        // กำหนดให้ orderLog และ dishTabs ขยายตามพื้นที่แนวตั้ง
         VBox.setVgrow(orderLog, Priority.ALWAYS);
         VBox.setVgrow(dishTabs, Priority.ALWAYS);
         
+        // สร้างหัวข้อส่วน Order Events และ Kitchen Queues พร้อมจัดสไตล์
         Label orderEvents = new Label("Order Events");
         Label kitchenQueues = new Label("Kitchen Queues");
         orderEvents.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         kitchenQueues.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         orderLog.getStyleClass().add("table-view");
+
+        // รวมคอมโพเนนต์ทั้งหมดตามลำดับในแนวตั้ง
         getChildren().addAll(
             orderEvents, orderLog,
             new Separator(), kitchenQueues, dishTabs,
             robotStatus
         );
 
-        // Refresh every second
+        // ตั้ง Timeline รีเฟรช UI ทุก 1 วินาที
         Timeline tl = new Timeline(new KeyFrame(Duration.seconds(1), e -> refresh()));
         tl.setCycleCount(Timeline.INDEFINITE);
         tl.play();
     }
 
+    /**
+     * รีเซ็ต UI เมื่อ Simulation รีเซ็ต
+     */
     @Override
     public void onReset() {
         Platform.runLater(() -> {
-            // Clear the order log
+            // เคลียร์ orderlog
             orderLog.getItems().clear();
             
-            // Reset all dish tables
+            // เคลียร์ตารางคิวในแต่ละแท็บ
             for (Tab tab : dishTabs.getTabs()) {
                 @SuppressWarnings("unchecked")
                 TableView<DishRow> tv = (TableView<DishRow>) tab.getContent();
@@ -106,17 +125,22 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
         });
     }
 
+
+    /**
+     * อัปเดตการแสดงผลตามสถานะการจำลองปัจจุบัน
+     * เรียกทุก 1 วินาทีจาก Timer
+     */
     private void refresh() {
         long now = System.currentTimeMillis();
     
-        // Update each dish tab
+        // อัปเดตแต่ละแท็บตามคิวของเชฟและหุ่นยนต์
         for (int i = 0; i < Dish.values().length; i++) {
             Dish d = Dish.values()[i];
             @SuppressWarnings("unchecked")
             TableView<DishRow> tv = (TableView<DishRow>) dishTabs.getTabs().get(i).getContent();
             List<DishRow> rows = new ArrayList<>();
     
-            // Chef queue entries with countdown
+            // คิวของเชฟ พร้อมตัวนับเวลาถอยหลัง
             ChefQueue cq = sim.chefQueues()[i];
             long remainMs = cq.getFinishTimeMs() - now;
             long remainSec = remainMs > 0 ? (remainMs + 999) / 1000 : 0;  // round up, clamp at 0
@@ -129,7 +153,7 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
                 idx++;
             }
     
-            // Robot queue entries for this dish
+            // คิวของหุ่นยนต์ที่พร้อมส่ง
             for (Order o : sim.robotQueue().getQueue()) {
                 if (o.dish() == d) {
                     rows.add(new DishRow(getNodeName(o.tableNumber()), "ready"));
@@ -139,12 +163,15 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
             tv.setItems(FXCollections.observableArrayList(rows));
         }
 
+        // อัปเดตสถานะของหุ่นยนต์
         robotStatus.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         robotStatus.setText(sim.isRobotBusy() ? "Robot: BUSY" : "Robot: IDLE");
     }
     
     /**
-     * Map numeric tableId to its GraphModel node name (e.g., "T2-1").
+     * แปลงรหัสโต๊ะ (ตัวเลข) ให้เป็นชื่อโหนดที่ใช้งาน เช่น "T2-1"
+     * @param tableId รหัสโต๊ะแบบตัวเลข
+     * @return ชื่อโหนดที่ใช้งานได้
      */
     private String getNodeName(int tableId) {
         return graphModel.nodes().stream()
@@ -158,7 +185,7 @@ public class KitchenQueuePane extends VBox implements SimulationEngine.ResetList
     }
 
     /**
-     * Clears the order events log.
+     * เคลียร์ orderlog
      */
     public void clearOrderLog() {
         Platform.runLater(() -> {

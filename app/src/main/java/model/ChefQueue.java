@@ -1,9 +1,13 @@
 package model;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
 
 /**
- * ChefQueue manages a FIFO queue of orders for one dish.
- * It tracks when the chef will be available and computes finish times dynamically.
+ * It tracks when the chef will be available and computes finish times.
  */
 public class ChefQueue {
     private final Queue<Order> q = new ArrayDeque<>();
@@ -33,7 +37,6 @@ public class ChefQueue {
                 availableAtMs = finishMs;
                 done.add(q.poll());
             } else {
-                // Head still cooking, stop
                 break;
             }
         }

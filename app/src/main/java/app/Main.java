@@ -38,26 +38,24 @@ import ui.RobotSimulationPane;
 
 public class Main extends Application {
 
-    private final GraphModel gm = new GraphModel();
-    private final SimulationEngine sim = new SimulationEngine(gm);
+    private final GraphModel gm = new GraphModel(); //restaurant layout
+    private final SimulationEngine sim = new SimulationEngine(gm); //simulate engine
 
-    private MediaPlayer mediaPlayer;
-    private ToggleButton muteBtn;
+    private MediaPlayer mediaPlayer; //background music player
+    private ToggleButton muteBtn; //toggle music button
     
-    // Tab references
-    private TabPane tabs;
-    private Tab tabLayout;
-    private Tab tabKitchen;
-    private Tab tabRobotSim;
+    private TabPane tabs; //tab pane containing all tabs
+    private Tab tabLayout; //tab containing all editors
+    private Tab tabKitchen; //the kitchen queue tab
+    private Tab tabRobotSim; //the robot sim tab
     
-    // Reference to the "Begin Simulation" button for enabling/disabling
     private Button beginSimButton;
     
-    // Fields to store simulation times history
-    private List<String> simulationTimes = new ArrayList<>();
-    private int simulationRound = 0;
+    
+    private List<String> simulationTimes = new ArrayList<>(); //history of run times
+    private int simulationRound = 0; //total runs
 
-    // Add static instance reference to Main class
+    
     private static Main instance;
 
     public static Main getInstance() {
@@ -66,11 +64,11 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
-        instance = this; // Set instance
-        // Set stage title
+        instance = this; 
+        
         stage.setTitle("Restaurant Simulator");
         
-        // 1) Build Start Screen
+        
         VBox startRoot = new VBox(20);
         startRoot.getStyleClass().add("start-screen");
         startRoot.setAlignment(Pos.CENTER);
@@ -81,18 +79,18 @@ public class Main extends Application {
         Button startBtn = new Button("Start");
         startBtn.getStyleClass().add("start-button");
 
-        startRoot.getChildren().addAll(title, startBtn);
+        startRoot.getChildren().addAll(title, startBtn); //add the title label and start btn to the start screen
 
-        // 2) Shared Scene + CSS
-        // Create scene with reasonable initial size - will be maximized after
-        Scene scene = new Scene(wrapWithMute(startRoot), 800, 600);
+        
+        
+        Scene scene = new Scene(wrapWithMute(startRoot), 800, 600); //set default size
         URL css = getClass().getResource("/app.css");
         if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
+            scene.getStylesheets().add(css.toExternalForm()); //link app.css to all files
         }
 
-        // 3) Setup background music
-        String musicPath = getClass()
+        
+        String musicPath = getClass() //setting up the music player
           .getResource("/mao zedong propaganda music Red Sun in the Sky 4.mp3")
           .toExternalForm();
         mediaPlayer = new MediaPlayer(new Media(musicPath));
@@ -100,16 +98,16 @@ public class Main extends Application {
         mediaPlayer.setVolume(1.5);
         mediaPlayer.play();
 
-        // 4) Start button switches root to main UI
-        startBtn.setOnAction(e -> {
-            // 1) Create Fade out for startRoot
-            FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot);
+        
+        startBtn.setOnAction(e -> { //click on start btn
+            
+            FadeTransition fadeOut = new FadeTransition(Duration.millis(800), startRoot); //transition
             fadeOut.setFromValue(1.0);
             fadeOut.setToValue(0.0);
             fadeOut.setOnFinished(evt -> {
 
-                // 2) Create GridEditor + TabPane
-                GridEditor edit = new GridEditor(gm, sim);
+                
+                GridEditor edit = new GridEditor(gm, sim); //initiate the gridEditor
                 Label status = new Label("พร้อมใช้งาน");
                 edit.setStatusTarget(status);
                 VBox topBar = new VBox(buildToolbar(edit), status);
@@ -120,63 +118,63 @@ public class Main extends Application {
                 tabLayout = new Tab("Restaurant Layout", layoutRoot);
                 tabLayout.setClosable(false);
                 
-                KitchenQueuePane kitchenPane = new KitchenQueuePane(sim);
+                KitchenQueuePane kitchenPane = new KitchenQueuePane(sim); //initiate the kitchen queue tab
                 tabKitchen = new Tab("Kitchen & Robot", kitchenPane);
                 tabKitchen.setClosable(false);
                 
-                // Create new Robot Simulation tab
-                RobotSimulationPane robotSimPane = new RobotSimulationPane(sim);
+                
+                RobotSimulationPane robotSimPane = new RobotSimulationPane(sim); //initiate the robot sim tab
                 tabRobotSim = new Tab("Robot Simulation", robotSimPane);
                 tabRobotSim.setClosable(false);
                 
-                // Create TabPane with all tabs
+                
                 tabs = new TabPane(tabLayout, tabKitchen, tabRobotSim);
                 tabs.getStyleClass().add("tab-pane");
-                tabs.setOpacity(0); // Start transparent for fade in
+                tabs.setOpacity(0); 
 
-                // 3) Switch Scene root
-                scene.setRoot(wrapWithMute(tabs));
                 
-                // Ensure window is on top after content change
-                stage.setAlwaysOnTop(true);
+                scene.setRoot(wrapWithMute(tabs)); //put all tabs in the scene
+                
+                
+                stage.setAlwaysOnTop(true); //make the application appears on top of the screen
                 Platform.runLater(() -> {
                     stage.setAlwaysOnTop(false);
-                    stage.toFront(); // Request focus and bring to front
+                    stage.toFront(); 
                 });
                 
-                // 4) Fade in new content
-                FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs);
+                
+                FadeTransition fadeIn = new FadeTransition(Duration.millis(800), tabs); //execute the transition
                 fadeIn.setFromValue(0.0);
                 fadeIn.setToValue(1.0);
                 fadeIn.play();
             });
-            // Start fade out
+            
             fadeOut.play();
         });
 
-        // Register the simulation completion listener to re-enable the layout tab
-        // and save simulation times
-        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
+        
+        
+        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() { //sim completion detecter
             @Override
             public void onSimulationComplete() {
                 Platform.runLater(() -> {
-                    // Re-enable the layout tab and Begin Simulation button
-                    if (tabLayout != null) {
+                    
+                    if (tabLayout != null) { //the user can go back to gridEditor tab again
                         tabLayout.setDisable(false);
                     }
-                    if (beginSimButton != null) {
+                    if (beginSimButton != null) { //the user can now click the begin sim btn again
                         beginSimButton.setDisable(false);
                     }
                     
-                    // Bring window to front to show completion
+                    
                     stage.toFront();
                     
-                    // Capture and store the simulation time
-                    if (tabRobotSim != null && tabRobotSim.getContent() instanceof RobotSimulationPane) {
+                    
+                    if (tabRobotSim != null && tabRobotSim.getContent() instanceof RobotSimulationPane) { //save this round's data
                         RobotSimulationPane robotPane = (RobotSimulationPane) tabRobotSim.getContent();
                         String currentTime = robotPane.getCurrentTimerText();
                         
-                        // Store the time with the round number
+                        
                         simulationRound++;
                         String timeEntry = "Round " + simulationRound + ": " + currentTime;
                         simulationTimes.add(timeEntry);
@@ -187,35 +185,26 @@ public class Main extends Application {
             }
         });
 
-        // Set up the stage
         stage.setScene(scene);
-        
-        // Make the window maximized (not fullscreen)
         stage.setMaximized(true);
-        
-        // Make sure the window appears on top when first opened
         stage.setAlwaysOnTop(true);
-        
-        // Show the window
         stage.show();
         
-        // After a short delay, disable always-on-top but keep window in foreground
         Platform.runLater(() -> {
             stage.setAlwaysOnTop(false);
-            stage.toFront(); // Ensure window is in front
-            stage.requestFocus(); // Give it focus
+            stage.toFront(); 
+            stage.requestFocus(); 
         });
     }
 
-    public void resetSimulationHistory() {
+    public void resetSimulationHistory() { //History reset when the reset btn is pressed
         simulationTimes.clear();
         simulationRound = 0;
     }
 
-    /** Wraps any content in a StackPane with the mute button in bottom-right. */
-    private Parent wrapWithMute(Parent content) {
+    private Parent wrapWithMute(Parent content) { //put the mute button in all tabs
         if (muteBtn == null) {
-            // create and configure it once
+            
             ToggleGroup tg = new ToggleGroup();
             muteBtn = new ToggleButton("🔇");
             muteBtn.setToggleGroup(tg);
@@ -229,7 +218,7 @@ public class Main extends Application {
         return wrapper;
     }
 
-    private void toggleMute() {
+    private void toggleMute() { //a function to toggle the bg music
         if (mediaPlayer != null) {
             MediaPlayer.Status status = mediaPlayer.getStatus();
             if (status == MediaPlayer.Status.PAUSED) {
@@ -242,7 +231,7 @@ public class Main extends Application {
         }
     }
 
-    private HBox buildToolbar(GridEditor ed) {
+    private HBox buildToolbar(GridEditor ed) { //the tool bar in the gridEditor tab
         ToggleGroup modeGroup = new ToggleGroup();
         return new HBox(8,
             makeTableBtn("T2",  TableType.T2 , ed, modeGroup),
@@ -262,7 +251,7 @@ public class Main extends Application {
         );
     }
 
-    private void configureToggleButton(ToggleButton btn) {
+    private void configureToggleButton(ToggleButton btn) { //apply the styles to all toggle buttons
         btn.setStyle(
           "-fx-focus-color: transparent;" +
           "-fx-faint-focus-color: transparent;" +
@@ -283,8 +272,7 @@ public class Main extends Application {
         });
     }
 
-    private ToggleButton makeTableBtn(String text, TableType t,
-                                      GridEditor ed, ToggleGroup g) {
+    private ToggleButton makeTableBtn(String text, TableType t, GridEditor ed, ToggleGroup g) { //set "place table mode" when click on table btn, change the table type according to the btn, disable other modes
         ToggleButton btn = new ToggleButton(text);
         btn.setToggleGroup(g);
         configureToggleButton(btn);
@@ -295,7 +283,7 @@ public class Main extends Application {
         return btn;
     }
 
-    private ToggleButton makePathToggle(GridEditor ed, ToggleGroup g) {
+    private ToggleButton makePathToggle(GridEditor ed, ToggleGroup g) { //set "place path mode" when click on a path btn, disable other modes
         ToggleButton btn = new ToggleButton("Path");
         btn.setToggleGroup(g);
         configureToggleButton(btn);
@@ -306,7 +294,7 @@ public class Main extends Application {
         return btn;
     }
 
-    private Button cancelDrawButton(GridEditor ed, ToggleGroup g) {
+    private Button cancelDrawButton(GridEditor ed, ToggleGroup g) { //a btn to stop a current path drawing process
         Button btn = new Button("Cancel Drawing");
         btn.setOnAction(e -> {
             ed.cancelDraw();
@@ -315,55 +303,52 @@ public class Main extends Application {
         return btn;
     }
 
-    private Button beginSim(GridEditor ed) {
+    private Button beginSim(GridEditor ed) { //begin sim btn
     Button btn = new Button("Begin Simulation");
-    // Store reference to the button for later enabling/disabling
+    
     beginSimButton = btn;
     
-    btn.setOnAction(e -> {
-        // Call the modified startSim method which now returns a boolean
+    btn.setOnAction(e -> { //begin sim
+        
         boolean validationSucceeded = ed.startSim();
         
-        // Only proceed with UI changes if validation passed
-        if (validationSucceeded) {
-            // Disable the Restaurant Layout tab
-            if (tabLayout != null) {
+        
+        if (validationSucceeded) { //if all conditions passed, return true
+            
+            if (tabLayout != null) { //disable gridEditor tab so users can't change the grid during sim
                 tabLayout.setDisable(true);
             }
             
-            // Switch to the Kitchen tab (index 1)
-            if (tabs != null) {
+            
+            if (tabs != null) { //immediately jump to kitchenqueue tab
                 tabs.getSelectionModel().select(1);
             }
             
-            // Disable the Begin Simulation button during simulation
-            btn.setDisable(true);
+            
+            btn.setDisable(true); //disable begin sim btn during sim
 
-            // Clear the order events in KitchenQueuePane
-            clearOrderEvents();
+            
+            clearOrderEvents(); //clear the order events in past sims (if exist)
         }
-        // If validation failed, we do nothing - keeping the layout tab enabled
-        // and not switching tabs
+        
+        
     });
     return btn;
 }
     
-    /**
-     * Clears the order events in the KitchenQueuePane
-     */
-    private void clearOrderEvents() {
-        // Find the KitchenQueuePane and clear its order log
+    private void clearOrderEvents() { //clear the order events
+        
         if (tabKitchen != null && tabKitchen.getContent() instanceof KitchenQueuePane) {
             KitchenQueuePane kitchenPane = (KitchenQueuePane) tabKitchen.getContent();
             kitchenPane.clearOrderLog();
         }
     }
 
-    private Button createShowTimesButton() {
+    private Button createShowTimesButton() { //history btn
         Button btn = new Button("History");
         btn.setOnAction(e -> {
-            if (simulationTimes.isEmpty()) {
-                // Show message if no history yet
+            if (simulationTimes.isEmpty()) { //if no sim has been run yet
+                
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Simulation History");
                 alert.setHeaderText("No simulation history");
@@ -376,8 +361,8 @@ public class Main extends Application {
         return btn;
     }
     
-    private void showSimulationTimesSummary() {
-        // Create a dialog to show all simulation times
+    private void showSimulationTimesSummary() { //show all run times and calculate the average time
+        
         Stage dialogStage = new Stage();
         dialogStage.initModality(Modality.APPLICATION_MODAL);
         dialogStage.setTitle("Simulation History");
@@ -414,7 +399,7 @@ public class Main extends Application {
     }
 
     private String calculateAverageTime() {
-        if (simulationTimes.isEmpty()) {
+        if (simulationTimes.isEmpty()) { //default if no sim has been run
             return "00:00";
         }
         
@@ -422,12 +407,12 @@ public class Main extends Application {
         int count = 0;
         
         for (String timeEntry : simulationTimes) {
-            // Extract the time portion (MM:SS) from the entry
-            // Format is "Round X: MM:SS"
+            
+            
             String timePart = timeEntry.substring(timeEntry.indexOf(":") + 2);
             
-            // Split into minutes and seconds
-            String[] parts = timePart.split(":");
+            
+            String[] parts = timePart.split(":"); //split minute and second from xx:yy format
             if (parts.length == 2) {
                 try {
                     int minutes = Integer.parseInt(parts[0]);
@@ -435,14 +420,14 @@ public class Main extends Application {
                     totalSeconds += (minutes * 60) + seconds;
                     count++;
                 } catch (NumberFormatException e) {
-                    // Skip this entry if it can't be parsed
+                    
                     System.err.println("Could not parse time: " + timePart);
                 }
             }
         }
         
-        // Calculate and format average
-        int avgSeconds = totalSeconds / count;
+        
+        int avgSeconds = totalSeconds / count; //calculate the average time
         int avgMinutes = avgSeconds / 60;
         int avgRemainingSeconds = avgSeconds % 60;
         

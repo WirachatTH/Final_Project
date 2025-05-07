@@ -30,7 +30,6 @@ import javafx.scene.shape.Line;
 import javafx.scene.text.Text;
 import model.GraphModel;
 import model.Graph;
-import model.GraphModel.Edge;
 import model.GraphModel.NodeInfo;
 import model.GraphModel.NodeKind;
 import model.TableType;
@@ -68,7 +67,7 @@ public class GridEditor extends HBox {
     private final Pane gridPane;
     private final TableView<EdgeRow> edgeTable;
 
-    // Tracks which src↔dst a JavaFX Line represents
+    //tracks which src↔dst a JavaFX Line represents
     private static class EdgeRecord {
         final String src, dst;
         EdgeRecord(String s, String d) {
@@ -77,7 +76,7 @@ public class GridEditor extends HBox {
         }
     }
 
-    // Row in the edge table
+    //row in the edge table
     public record EdgeRow(String connection, double weight) {}
 
     private final SimulationEngine sim;
@@ -85,21 +84,21 @@ public class GridEditor extends HBox {
     public GridEditor(GraphModel model, SimulationEngine sim) {
         this.graph = model;
         this.sim = sim;
-        // init grid state
+        //init grid state
         for (int r = 0; r < CELLS; r++)
             for (int c = 0; c < CELLS; c++)
                 gridState[r][c] = CellState.EMPTY;
 
         setSpacing(10);
 
-        // grid pane
+        //grid pane
         gridPane = new Pane();
         gridPane.setPrefSize(CELLS * CELL_SIZE, CELLS * CELL_SIZE);
         drawGridLines();
         gridPane.setOnMouseClicked(this::onClick);
         gridPane.getStyleClass().add("grid-cell");
 
-        // edge table
+        //edge table
         edgeTable = new TableView<>();
         edgeTable.setPrefWidth(200);
         TableColumn<EdgeRow,String> colC = new TableColumn<>("Connection");
@@ -109,20 +108,20 @@ public class GridEditor extends HBox {
         edgeTable.getColumns().addAll(colC, colW);
         edgeTable.setItems(FXCollections.observableArrayList());
 
-        // reset button
+        //reset button
         Button resetBtn = new Button("Reset");
         resetBtn.setOnAction(e -> resetAll());
 
-        // layout: left side with reset + grid, right side edge table
+        //layout: left side with reset + grid, right side edge table
         VBox leftBox = new VBox(5, resetBtn, gridPane);
         leftBox.setAlignment(Pos.TOP_CENTER);
 
         getChildren().addAll(leftBox, edgeTable);
     }
 
-    /** Completely clears all nodes, edges, and UI elements */
+    //clear all elements
     private void resetAll() {
-        // clear model data
+        //clear model data
         graph.nodes().clear();
         graph.edges().clear();
         graph.tableIds().clear();
@@ -133,17 +132,17 @@ public class GridEditor extends HBox {
             sim.resetState();
         }
 
-        // reset counters
+        //reset counters
         nextTableNumber = 1;
         nextJunctionNumber = 1;
 
-        // clear UI state
+        //clear UI state
         nodeShapes.clear();
         edgeShapes.clear();
         cellEdgeMap.clear();
         clearPathState();
 
-        // reset gridState to EMPTY
+        //reset gridState to EMPTY
         for (int r = 0; r < CELLS; r++) {
             for (int c = 0; c < CELLS; c++) {
                 gridState[r][c] = CellState.EMPTY;
@@ -155,7 +154,7 @@ public class GridEditor extends HBox {
             mainApp.resetSimulationHistory();
         }
 
-        // rebuild grid and table view
+        //rebuild grid and table view
         drawGridLines();
         gridPane.getChildren().clear();
         drawGridLines();
@@ -184,7 +183,7 @@ public class GridEditor extends HBox {
         }
     }
 
-    private void drawGridLines() {
+    private void drawGridLines() { //create the grids
         for (int i = 0; i <= CELLS; i++) {
             Line h = new Line(0, i*CELL_SIZE, CELLS*CELL_SIZE, i*CELL_SIZE);
             Line v = new Line(i*CELL_SIZE, 0, i*CELL_SIZE, CELLS*CELL_SIZE);
@@ -192,7 +191,7 @@ public class GridEditor extends HBox {
         }
     }
 
-    private void onClick(MouseEvent e) {
+    private void onClick(MouseEvent e) { //decide if the user is placing tables, junctions, paths
         int c = (int)(e.getX() / CELL_SIZE), r = (int)(e.getY() / CELL_SIZE);
         if (c<0||c>=CELLS||r<0||r>=CELLS) return;
         CellState st = gridState[r][c];
@@ -220,7 +219,7 @@ public class GridEditor extends HBox {
         }
     }
 
-    public void cancelDraw() {
+    public void cancelDraw() { //cancel the drawing process
         if (pathStart!=null) {
             clearPathState();
             showStatus("Drawing cancelled");
@@ -231,13 +230,13 @@ public class GridEditor extends HBox {
         }
     }
 
-    private void placeTable(int c, int r) {
+    private void placeTable(int c, int r) { //placing a table on the grids
         if (currentTable == TableType.K && graph.kitchenId().isPresent()) {
-            showStatus("ERROR: Only one Kitchen (K) allowed!");
+            showStatus("ERROR: Only one Kitchen (K) allowed!"); //preventing multiple kitchens
             return;
         }
         if (currentTable == null) {
-            showStatus("ERROR: Have not selected table type yet.");
+            showStatus("ERROR: Have not selected table type yet."); //must select table type
             return;
         }
         double x = c*CELL_SIZE + CELL_SIZE/2.0, y = r*CELL_SIZE + CELL_SIZE/2.0;
@@ -250,7 +249,7 @@ public class GridEditor extends HBox {
         Text lbl = new Text(n.name());
         lbl.setMouseTransparent(true);
         lbl.setTextOrigin(javafx.geometry.VPos.CENTER);
-        // center immediately
+        //center text in the circle immediately
         javafx.application.Platform.runLater(() -> {
             lbl.setX(x - lbl.getLayoutBounds().getWidth()/2);
             lbl.setY(y);
@@ -258,15 +257,15 @@ public class GridEditor extends HBox {
         gridPane.getChildren().add(lbl);
 
         gridState[r][c] = CellState.TABLE;
-        showStatus("Placed " + n.name());
+        showStatus("Placed " + n.name()); //logging
     }
 
-    private void clickTable(int c, int r) {
+    private void clickTable(int c, int r) { //decide if the user's drawing or finished drawing
         GraphModel.Node node = findNode(c, r);
         if (node==null) return;
 
         if (pathStart==null) {
-            // begin drawing
+            //begin drawing
             pathStart = node;
             tempCells.clear();
             clearPreview();
@@ -282,9 +281,9 @@ public class GridEditor extends HBox {
             String startLabel = (info.kind==NodeKind.JUNCTION?"J":node.type()+"-") + info.number;
             showStatus("Path start @ " + startLabel);
         } else {
-            // finish drawing
+            //finished drawing
             if (graph.findEdge(pathStart.id(),node.id()).isPresent()) {
-                showStatus("ERROR: attempted loop — cancelled");
+                showStatus("ERROR: attempted loop — cancelled"); //loop case
                 clearPathState();
                 return;
             }
@@ -293,12 +292,12 @@ public class GridEditor extends HBox {
                 : tempCells.get(tempCells.size()-1);
             int pc=(int)(last.getX()/CELL_SIZE), pr=(int)(last.getY()/CELL_SIZE);
             if (Math.abs(pc-c)+Math.abs(pr-r)!=1) {
-                showStatus("ERROR: must land adjacent");
+                showStatus("ERROR: must land adjacent"); //not adjacent case
                 return;
             }
 
             clearPreview(); double px=pathStart.x(), py=pathStart.y();
-            for (Point2D pd : tempCells) {
+            for (Point2D pd : tempCells) { //adding the paths on the grid
                 Line seg = new Line(px,py,pd.getX(),pd.getY());
                 seg.getStyleClass().add("path-line");
                 style(seg);
@@ -314,21 +313,22 @@ public class GridEditor extends HBox {
             style(lastSeg);
             style(lastSeg);
             gridPane.getChildren().add(lastSeg);
-            edgeShapes.put(lastSeg,new EdgeRecord(pathStart.id(),node.id()));
+            edgeShapes.put(lastSeg,new EdgeRecord(pathStart.id(),node.id())); //creating the edge
 
             List<Point> cellPath = tempCells.stream()
                 .map(p2->new Point((int)(p2.getX()/CELL_SIZE),(int)(p2.getY()/CELL_SIZE)))
                 .collect(Collectors.toList());
-            graph.addEdge(pathStart.id(), node.id(), cellPath);
+            graph.addEdge(pathStart.id(), node.id(), cellPath); //add new edge in graph
 
             NodeInfo info2 = graph.getNodeInfo(node.id()).orElseThrow();
             String endLabel = (info2.kind==NodeKind.JUNCTION?"J":node.type()+"-") + info2.number;
-            refreshEdges(); showStatus("Connected to " + endLabel);
-            clearPathState();
+            refreshEdges(); //updating the edge list on the right table
+            showStatus("Connected to " + endLabel); //logging
+            clearPathState(); //clear the current process
         }
     }
 
-    private void extendPath(int c, int r) {
+    private void extendPath(int c, int r) { //the process of drawing paths
         int pc, pr;
         if (tempCells.isEmpty()) {
             pc=(int)(pathStart.x()/CELL_SIZE);
@@ -362,7 +362,7 @@ public class GridEditor extends HBox {
         showStatus("Segments: " + tempCells.size());
     }
 
-    private void splitAndContinue(int c, int r) {
+    private void splitAndContinue(int c, int r) { //clicking on an existing edge will create a junction
         EdgeRecord rec=cellEdgeMap.get(new Point(c,r));
         if(rec==null) return;
         Optional<GraphModel.Edge> oe=graph.findEdge(rec.src,rec.dst);
@@ -371,7 +371,7 @@ public class GridEditor extends HBox {
         List<Point> cells=oldEdge.cells;
         int idx=findIndex(cells,c,r);
         if(idx<0) return;
-        graph.removeEdge(rec.src,rec.dst);
+        graph.removeEdge(rec.src,rec.dst); //remove the current edge
         edgeShapes.entrySet().removeIf(e->e.getValue().src.equals(rec.src)&&e.getValue().dst.equals(rec.dst));
         cellEdgeMap.entrySet().removeIf(e->e.getValue().src.equals(rec.src)&&e.getValue().dst.equals(rec.dst));
         List<Point> firstPath=new ArrayList<>(cells.subList(0,idx));
@@ -400,8 +400,8 @@ public class GridEditor extends HBox {
             gridState[r][c]=CellState.TABLE;
             nextJunctionNumber++;
         }
-        graph.addEdge(rec.src,mid.id(),new ArrayList<>(firstPath));
-        graph.addEdge(mid.id(),rec.dst,new ArrayList<>(secondPath));
+        graph.addEdge(rec.src,mid.id(),new ArrayList<>(firstPath)); //add the first half edge
+        graph.addEdge(mid.id(),rec.dst,new ArrayList<>(secondPath)); //add the second half edge
         for(Point p:firstPath){
             gridState[p.y][p.x]=CellState.PATH;
             cellEdgeMap.put(new Point(p.x,p.y),new EdgeRecord(rec.src,mid.id()));
@@ -413,7 +413,7 @@ public class GridEditor extends HBox {
         refreshEdges();
     }
 
-    private int findIndex(List<Point> list,int c,int r){
+    private int findIndex(List<Point> list,int c,int r){ //get the index
         for(int i=0;i<list.size();i++){
             Point p=list.get(i);
             if(p.x==c&&p.y==r)return i;
@@ -421,7 +421,7 @@ public class GridEditor extends HBox {
         return -1;
     }
 
-    private void refreshEdges() {
+    private void refreshEdges() { //update the edge list table
         var rows = graph.edges().stream().map(e -> {
             String sa = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
             String sb = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
@@ -454,92 +454,89 @@ public class GridEditor extends HBox {
         ln.setStroke(Color.RED);
     }
 
-    // Updated traversePath method in GridEditor.java
-private boolean traversePath(Graph simGraph) {
-    boolean isCompleted = true;
-    StringBuilder errorMessages = new StringBuilder();
+    private boolean traversePath(Graph simGraph) { //traverse path to check for any failed cases
+        boolean isCompleted = true;
+        StringBuilder errorMessages = new StringBuilder();
 
-    // 0) Check if Kitchen ("K") exists in the graph
-    Optional<String> kitchenId = graph.kitchenId();
-    if (kitchenId.isEmpty()) {
-        errorMessages.append("ERROR: Kitchen node (K) not found! Please add a Kitchen to your layout.\n");
-        isCompleted = false;
-    } else {
-        String kitchenName = graph.nodes().stream()
-            .filter(n -> n.id().equals(kitchenId.get()))
-            .findFirst()
-            .map(GraphModel.Node::name)
-            .orElse("K");
-            
-        // 1) Check each table for accessibility from kitchen
-        for (String tableId : graph.tableIds().keySet()) {
-            GraphModel.Node tableNode = graph.nodes().stream()
-                .filter(n -> n.id().equals(tableId))
+        //check if Kitchen ("K") exists in the graph
+        Optional<String> kitchenId = graph.kitchenId();
+        if (kitchenId.isEmpty()) {
+            errorMessages.append("ERROR: Kitchen node (K) not found! Please add a Kitchen to your layout.\n");
+            isCompleted = false;
+        } else {
+            String kitchenName = graph.nodes().stream()
+                .filter(n -> n.id().equals(kitchenId.get()))
                 .findFirst()
-                .orElseThrow();
-            
-            String displayName = tableNode.name();  // "T4-1", "T2-2", etc.
-            
-            List<String> path = simGraph.dijkstra(kitchenName, displayName);
-            boolean reachable = path.size() >= 2
-                && path.get(0).equals(kitchenName)
-                && path.get(path.size()-1).equals(displayName);
+                .map(GraphModel.Node::name)
+                .orElse("K");
                 
-            if (!reachable) {
-                errorMessages.append("ERROR: Table ").append(displayName)
-                    .append(" is not reachable from the kitchen!\n");
-                isCompleted = false;
+            //check each table for accessibility from kitchen
+            for (String tableId : graph.tableIds().keySet()) {
+                GraphModel.Node tableNode = graph.nodes().stream()
+                    .filter(n -> n.id().equals(tableId))
+                    .findFirst()
+                    .orElseThrow();
+                
+                String displayName = tableNode.name();  //"T4-1", "T2-2", etc.
+                
+                List<String> path = simGraph.dijkstra(kitchenName, displayName);
+                boolean reachable = path.size() >= 2
+                    && path.get(0).equals(kitchenName)
+                    && path.get(path.size()-1).equals(displayName);
+                    
+                if (!reachable) {
+                    errorMessages.append("ERROR: Table ").append(displayName)
+                        .append(" is not reachable from the kitchen!\n");
+                    isCompleted = false;
+                }
             }
         }
+        
+        if (!isCompleted) {
+            //show all error messages in one dialog
+            showErrorDialog("Restaurant Layout Error", errorMessages.toString());
+            System.out.println(errorMessages.toString());
+        } else {
+            System.out.println("Graph created successfully! Begin simulation...");
+        }
+        
+        return isCompleted;
     }
-    
-    if (!isCompleted) {
-        // Show all error messages in one dialog
-        showErrorDialog("Restaurant Layout Error", errorMessages.toString());
-        System.out.println(errorMessages.toString());
-    } else {
-        System.out.println("Graph created successfully! Begin simulation...");
-    }
-    
-    return isCompleted;
-}
 
 
-// Helper method to show error dialog - add this to GridEditor.java
-private void showErrorDialog(String title, String content) {
-    Platform.runLater(() -> {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText("Restaurant Layout Validation Failed");
-        alert.setContentText(content);
-        alert.showAndWait();
-    });
-}
+    //a method to show error pop up box
+    private void showErrorDialog(String title, String content) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle(title);
+            alert.setHeaderText("Restaurant Layout Validation Failed");
+            alert.setContentText(content);
+            alert.showAndWait();
+        });
+    }
 
-public boolean validateGraph() {
-    // Build simulation graph
-    Graph simGraph = new Graph();
-    for (GraphModel.Edge e: graph.edges()) {
-        String srcNode = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
-        String destNode = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
-        simGraph.addEdge(srcNode, destNode, (int)e.weight);
+    public boolean validateGraph() {
+        //build simulation graph
+        Graph simGraph = new Graph();
+        for (GraphModel.Edge e: graph.edges()) {
+            String srcNode = graph.nodes().stream().filter(n->n.id().equals(e.from)).findFirst().get().name();
+            String destNode = graph.nodes().stream().filter(n->n.id().equals(e.to)).findFirst().get().name();
+            simGraph.addEdge(srcNode, destNode, (int)e.weight);
+        }
+        
+        //run graph checker and return the result
+        return traversePath(simGraph);
     }
     
-    // Run validation and return the result
-    return traversePath(simGraph);
-}
-    
 
-public boolean startSim() {
-    // Validate the graph before starting simulation
-    if (!validateGraph()) {
-        showStatus("ERROR: Restaurant layout validation failed!");
-        return false; // Return false to tell Main.java that validation failed
+    public boolean startSim() {
+        //if the graph passed all conditions, begin sim
+        if (!validateGraph()) {
+            showStatus("ERROR: Restaurant layout validation failed!");
+            return false;
+        }
+        showStatus("Restaurant layout validated. Starting simulation...");
+        sim.startSimulation();
+        return true;
     }
-    
-    // If validation passed, start the simulation
-    showStatus("Restaurant layout validated. Starting simulation...");
-    sim.startSimulation();
-    return true; // Return true to tell Main.java that validation succeeded
-}
 }

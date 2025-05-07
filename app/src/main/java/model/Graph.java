@@ -6,18 +6,18 @@ import java.util.stream.Collectors;
 
 
 public class Graph {
-    private Map<String, List<Edge>> adjacencyList = new HashMap<>();
+    private Map<String, List<Edge>> adjacencyList = new HashMap<>(); //adjacency list storing connections of nodes
 
     // เพิ่ม Edge เข้าไปในกราฟ
     public void addEdge(String src, String dest, int weight) {
-        adjacencyList.putIfAbsent(src, new ArrayList<>());
+        adjacencyList.putIfAbsent(src, new ArrayList<>()); //create an array list for each node
         adjacencyList.putIfAbsent(dest, new ArrayList<>());
         
         adjacencyList.get(src).add(new Edge(src, dest, weight));
-        adjacencyList.get(dest).add(new Edge(dest, src, weight)); // ทำกราฟสองทิศทาง
+        adjacencyList.get(dest).add(new Edge(dest, src, weight)); // add edge (undirected graph)
     }
 
-    // คำนวณเส้นทางที่สั้นที่สุดจาก src ไปยัง dest ด้วย Dijkstra's Algorithm
+    // find the shortest path for every pair of nodes
     public List<String> dijkstra(String start, String end) {
         System.err.println("[DIJKSTRA] Keys in adjacencyList: " + adjacencyList.keySet());
         System.err.println("[DIJKSTRA] Checking for start=" + start + ", end=" + end);
@@ -65,7 +65,7 @@ public class Graph {
         return path;
     }
 
-    // คลาส Edge เพื่อเก็บข้อมูลเกี่ยวกับการเดินทาง
+    //class edge containing source node, destination node, weight, and a public getter
     public static class Edge {
         private String src;
         private String dest;
@@ -90,15 +90,13 @@ public class Graph {
         }
     }
 
-    public List<Edge> getAllEdges() {
+    public List<Edge> getAllEdges() { //return a list of all edges
     return adjacencyList.values().stream()
         .flatMap(List::stream)
         .collect(Collectors.toList());
     }
 
-    /** 
-     * Return the weight of the edge from src → dest, or throw if none exists.
-     */
+    //return the weight of edge from source to destination
     public double getWeight(String src, String dest) {
         for (Edge e : adjacencyList.getOrDefault(src, Collections.emptyList())) {
             if (e.getDest().equals(dest)) {

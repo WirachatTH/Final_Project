@@ -18,15 +18,12 @@ import model.GraphModel.NodeInfo;
 import model.GraphModel.NodeKind;
 import model.Order;
 
-/**
- * Robot that collects up to 3 completed orders and delivers them using Dijkstra pathfinding.
- */
-public class ServeRobot {
-    private final Graph graph;
-    private final GraphModel graphModel;
-    private final String kitchenNode;
-    private final Queue<Order> serveQueue;
-    private final SimulationEngine simulationEngine;
+public class ServeRobot { //handles the completed orders and send them to the robot
+    private final Graph graph; //restaurant layout
+    private final GraphModel graphModel; //the graph with all nodes and paths
+    private final String kitchenNode; //the kitchen node
+    private final Queue<Order> serveQueue; //queue of orders
+    private final SimulationEngine simulationEngine; //reference to the main engine
 
     public ServeRobot(Graph graph, GraphModel graphModel, String kitchenNode, Queue<Order> serveQueue, SimulationEngine simulationEngine) {
         this.graph = graph;
@@ -36,12 +33,7 @@ public class ServeRobot {
         this.simulationEngine = simulationEngine;
     }
 
-    /**
-     * Calculate the delivery route without actually serving.
-     * Used for animation planning.
-     */
-    public List<String> calculateRoute() {
-        // Collect up to 3 orders (without removing from queue - we'll do that during serve())
+    public List<String> calculateRoute() { //collect up to 3 orders
         List<Order> batch = new ArrayList<>();
         for (Order o : serveQueue) {
             batch.add(o);
@@ -52,12 +44,12 @@ public class ServeRobot {
             return new ArrayList<>();
         }
         
-        // Compute full path: kitchen -> each table -> kitchen
+        //create full path of kitchen -> each table -> kitchen
         List<String> fullPath = new ArrayList<>();
         String current = kitchenNode;
         fullPath.add(current);
         
-        // Create a map to track unique tables and their dishes
+        //create a map to track unique tables and their dishes
         Map<Integer, String> tableToNode = new HashMap<>();
         for (Order o : batch) {
             int tableNum = o.tableNumber();
@@ -65,10 +57,10 @@ public class ServeRobot {
             tableToNode.put(tableNum, nodeName);
         }
         
-        // Create array of unique tables to visit
+        //create array of unique tables to visit
         List<String> tablesToVisit = solveOrderOptimization(current, tableToNode);
         
-        // Now visit each table in the optimized order
+        //visit each table in the optimized order
         for (String dest : tablesToVisit) {
             if (current.equals(dest)) {
                 continue;
@@ -98,9 +90,7 @@ public class ServeRobot {
         return fullPath;
     }
 
-    /**
-     * Serve up to 3 orders: drain them from the queue, compute the delivery route, and print it.
-     */
+    //serves up to 3 orders in the robot queue
     public void serve() {
         System.out.println("[ROBOT] Starting delivery run...");
 
@@ -116,18 +106,18 @@ public class ServeRobot {
             return;
         }
 
-        // Log dispatched orders with true node names
+        //console log for debugging
         String ordersList = batch.stream()
             .map(o -> o.dish().name() + " from " + lookupNodeName(o.tableNumber()))
             .collect(Collectors.joining(", "));
         System.out.println("[DISPATCH] Robot taking " + batch.size() + " orders: " + ordersList);
 
-        // 2) Compute full path: kitchen -> each table -> kitchen
+        //createfull path: kitchen -> each table -> kitchen
         List<String> fullPath = new ArrayList<>();
         String current = kitchenNode;
         fullPath.add(current);
 
-        // Create a map to track unique tables and their dishes
+        //create a map to track unique tables and their dishes
         Map<Integer, String> tableToNode = new HashMap<>();
         for (Order o : batch) {
             int tableNum = o.tableNumber();
@@ -141,13 +131,12 @@ public class ServeRobot {
         // Now visit each table in the optimized order
         for (String dest : tablesToVisit) {
             if (current.equals(dest)) {
-                // Already at this table; no travel needed.
+                //the robot is already at this table, no travel needed
                 continue;
             }
             
             List<String> segment = graph.dijkstra(current, dest);
-            
-            // handle direct neighbor case if Dijkstra returned only the end node
+
             if (segment.size() == 1 && adjacencyListContainsEdge(current, dest)) {
                 segment = Arrays.asList(current, dest);
             }
@@ -156,14 +145,14 @@ public class ServeRobot {
                 fullPath.addAll(segment.subList(1, segment.size()));
                 current = dest;
                 
-                // Notify delivery for this table (we reached it)
+                //notify the delivery system that the table has been reached
                 SimulationEngine.getInstance().notifyDelivery(dest);
             } else {
                 System.err.println("[ROBOT] Error: No path from " + current + " to " + dest);
             }
         }
         
-        // Return to kitchen
+        //return to kitchen
         List<String> back = graph.dijkstra(current, kitchenNode);
         if (back.size() == 1 && adjacencyListContainsEdge(current, kitchenNode)) {
             back = Arrays.asList(current, kitchenNode);
@@ -172,47 +161,37 @@ public class ServeRobot {
             fullPath.addAll(back.subList(1, back.size()));
         }
 
-        // at this point fullPath should be something like ["K","J1","T4-5","J1","K"]
+        //output the log K -> ... -> K for debugging
         System.out.println("[ROBOT] Route: " + String.join(" -> ", fullPath));
 
-       // Compute total distance over every leg, including the final return-to-K leg
+       //calculate the total distance
        double total = 0;
        for (int i = 0; i < fullPath.size() - 1; i++) {
            String u = fullPath.get(i);
            String v = fullPath.get(i + 1);
            double segmentWeight = graph.getWeight(u, v) + 1;
            total += segmentWeight;
-           // Uncomment for debugging
-           // System.out.println("[DEBUG] Segment " + u + " -> " + v + " weight: " + segmentWeight);
        }
        System.out.println("[ROBOT] Total distance (round trip): " + total);
 
-       // then the delivery summary…
+       //summarize the delivery
        String delivered = batch.stream()
            .map(o -> lookupNodeName(o.tableNumber()))
            .collect(Collectors.joining(", "));
        System.out.println("[ROBOT] Delivered to: " + delivered + "; returning to kitchen.");
    }
 
-   /**
-    * Solve the optimization problem to find the best order to visit tables.
-    * This is a simplified approach that uses a greedy algorithm to find the nearest unvisited node.
-    * For a small number of points (3 or fewer), this will give reasonably good results.
-    * 
-    * @param start Starting node (kitchen)
-    * @param tableToNode Map of table numbers to node names
-    * @return List of node names in the optimal visiting order
-    */
+   //greedy nearest-neighbor algorithm
    private List<String> solveOrderOptimization(String start, Map<Integer, String> tableToNode) {
        Set<String> uniqueTables = new HashSet<>(tableToNode.values());
        List<String> result = new ArrayList<>();
        
-       // If we only have 0 or 1 unique table, the solution is trivial
+       //if only 0 or 1 table exists in the route, the solution is trivial
        if (uniqueTables.size() <= 1) {
            return new ArrayList<>(uniqueTables);
        }
        
-       // Use a greedy nearest-neighbor approach
+       //greedy nearest-neighbor approach
        String current = start;
        Set<String> visited = new HashSet<>();
        
@@ -224,9 +203,9 @@ public class ServeRobot {
                if (visited.contains(node)) continue;
                
                List<String> path = graph.dijkstra(current, node);
-               double distance = path.size() - 1; // Simple distance metric
+               double distance = path.size() - 1; //simple distance metric
                if (path.size() <= 1 && adjacencyListContainsEdge(current, node)) {
-                   distance = 1; // Direct edge case
+                   distance = 1; //direct edge case
                }
                
                if (distance < minDistance) {
@@ -240,17 +219,14 @@ public class ServeRobot {
                visited.add(nearest);
                current = nearest;
            } else {
-               break; // This shouldn't happen unless there's a disconnected node
+               break; //prevent a disconnected node case (shouldn't happen)
            }
        }
        
        return result;
    }
 
-   /**
-    * Lookup the node name (e.g., "T4-2") for the given table index.
-    * Falls back to the numeric index if not found or not a TABLE node.
-    */
+   //search for the table name by its table number
    private String lookupNodeName(int tableNumber) {
        for (Node node : graphModel.nodes()) {
            Optional<NodeInfo> infoOpt = graphModel.getNodeInfo(node.id());
@@ -261,9 +237,7 @@ public class ServeRobot {
        return String.valueOf(tableNumber);
    }
 
-   /**
-    * Returns true if there is a direct edge between src and dest in the graph.
-    */
+   //check if there's a direct edge between src node and dest node
    private boolean adjacencyListContainsEdge(String src, String dest) {
        return graph
            .getAllEdges()

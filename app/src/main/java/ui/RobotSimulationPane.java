@@ -39,10 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Visual simulation of the robot's movement and cargo.
- * ADJUSTED TIMING VERSION - Ensures food markers appear exactly when the robot reaches a table.
- */
 public class RobotSimulationPane extends BorderPane implements SimulationEngine.ResetListener {
     private static final int CELL_SIZE = 60;
     private static final int CELLS = 8;
@@ -64,19 +60,14 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
 
     private Set<String> tablesToServe = new HashSet<>();
     
-    // Map to track which tables have food on them - keyed by table name
+    //map to track which tables have food ordered
     private final Map<String, Circle> foodMarkers = new HashMap<>();
     
-    // Track delivered tables to prevent duplicates
+    //track is the table has been served to prevent duplication in one route. (K -> T2-1 -> T2-1 -> K)
     private final Set<String> deliveredTables = new HashSet<>();
-    
-    // Debug flag
     private final boolean DEBUG = true;
 
-    /**
-     * Data model for robot's cargo - simplified for reliability.
-     */
-    public static class RobotCargo {
+    public static class RobotCargo { //robot cargo containing food, its table
         private final String food;
         private final String table;
 
@@ -89,33 +80,30 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         public String getTable() { return table; }
     }
 
-    /**
-     * Constructor for the robot simulation pane.
-     */
     public RobotSimulationPane(SimulationEngine sim) {
         this.sim = sim;
-        // Add this pane as a reset listener
+        //add this pane as a reset listener
         if (sim != null) {
             sim.addResetListener(this);
         }
 
         this.graphModel = sim.getGraphModel();
         
-        // Grid pane for the restaurant layout visualization
+        //grid pane for the restaurant layout visualization
         gridPane = new Pane();
         gridPane.setPrefSize(CELLS * CELL_SIZE, CELLS * CELL_SIZE);
         gridPane.getStyleClass().add("grid-editor-root");
         
-        // Robot representation
+        //robot representation
         robotDot = new Circle(10, Color.GREEN);
         robotDot.setStroke(Color.BLACK);
         robotDot.setVisible(false);
         
-        // Cargo table setup - simplify
+        //cargo table setup
         cargoTable = new TableView<>();
         cargoTable.setPlaceholder(new Label("Robot is not carrying any food"));
 
-        // Food column - use explicit cell factory
+        //food column - use explicit cell factory
         TableColumn<RobotCargo, String> foodCol = new TableColumn<>("Food");
         foodCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<RobotCargo, String>, javafx.beans.value.ObservableValue<String>>() {
             @Override
@@ -125,7 +113,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         });
         foodCol.setPrefWidth(200);
 
-        // Table column - use explicit cell factory
+        //table column - use explicit cell factory
         TableColumn<RobotCargo, String> tableCol = new TableColumn<>("Table");
         tableCol.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<RobotCargo, String>, javafx.beans.value.ObservableValue<String>>() {
             @Override
@@ -139,20 +127,20 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         cargoTable.setItems(FXCollections.observableArrayList());
         cargoTable.setPrefHeight(150);
         
-        // Status label
+        //status label
         statusLabel = new Label("Waiting for simulation to start...");
         statusLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
         
-        // Initial placeholder
+        //initial placeholder
         Label placeholder = new Label("Simulation not started yet.\nDesign your restaurant layout and start the simulation to see robot movement.");
         placeholder.setAlignment(Pos.CENTER);
         placeholder.setStyle("-fx-font-size: 32px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold");
         
-        // Timer label
+        //timer label
         timerLabel = new Label("Timer: 00:00");
         timerLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FFFFFF");
 
-        // Layout
+        //layout
         VBox infoBox = new VBox(10);
         infoBox.setPadding(new Insets(10));
         Label cargo = new Label("Robot Cargo:");
@@ -160,106 +148,102 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         infoBox.getChildren().addAll(
             cargo, 
             cargoTable,
-            new HBox(10, statusLabel, timerLabel) // Timer next to status
+            new HBox(10, statusLabel, timerLabel) //timer next to status
         );
         
         setCenter(placeholder);
         setBottom(infoBox);
         
-        // Event listeners
+        //set up listeners for all events
         setupEventListeners();
     }
 
     @Override
-    public void onReset() {
+    public void onReset() { //when the reset was clicked
         Platform.runLater(() -> {
             System.out.println("[DEBUG] Robot simulation pane reset beginning");
             
-            // Stop any running animations
+            //stop any running animations
             if (isAnimationRunning && robotAnimation != null) {
                 robotAnimation.stop();
                 isAnimationRunning = false;
             }
             
-            // Clear any running timers
+            //clear any running timers
             stopTimer();
             
-            // Clear food markers
+            //clear food markers
             clearFoodMarkers();
             
-            // Clear tables to serve set
+            //clear tables to serve set
             tablesToServe.clear();
             
-            // Clear delivered tables set
+            //clear delivered tables set
             deliveredTables.clear();
             
-            // Clear cargo table
+            //clear cargo table
             cargoTable.getItems().clear();
             cargoTable.refresh();
             
-            // Reset status label
+            //reset status label
             statusLabel.setText("Ready for new simulation");
             
-            // Reset timer label
+            //reset timer label
             timerLabel.setText("Timer: 00:00");
             
-            // Remove the grid and add back the placeholder
+            //remove the grid and add back the placeholder
             setCenter(null);
             
-            // Create and set the placeholder
+            //create and set the placeholder
             Label placeholder = new Label("Simulation not started yet.\nDesign your restaurant layout and start the simulation to see robot movement.");
             placeholder.setAlignment(Pos.CENTER);
             placeholder.setStyle("-fx-font-size: 32px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold");
             setCenter(placeholder);
             
-            // Always set initialized to false to force rebuild
+            //change initialized back to false
             initialized = false;
             
             System.out.println("[DEBUG] Robot simulation pane reset completed");
         });
     }
     
-    // Add a method to rebuild the grid from scratch
+    //add a method to rebuild the grid from scratch
     private void rebuildGrid() {
-        // Clear the grid pane
+        //clear the grid pane
         gridPane.getChildren().clear();
         
-        // Redraw grid lines
+        //redraw grid lines
         drawGridLines();
         
-        // Redraw all nodes (tables, kitchen, junctions)
+        //redraw all nodes (tables, kitchen, junctions)
         for (GraphModel.Node node : graphModel.nodes()) {
             // Redraw node (existing node drawing code)
         }
         
-        // Add the robot dot back
+        //add the robot dot back
         gridPane.getChildren().add(robotDot);
     }
 
-    
-    /**
-     * Set up event listeners for simulation events.
-     */
     private void setupEventListeners() {
-        // 4. Make sure to clear the tablesToServe set in the simulation start listener
-        sim.addSimulationStartListener(new SimulationEngine.SimulationStartListener() {
+        //clear the tablesToServe set in the simulation start listener
+        sim.addSimulationStartListener(new SimulationEngine.SimulationStartListener() { //listener for sim start
             @Override
             public void onSimulationStart() {
                 Platform.runLater(() -> {
-                    // IMPORTANT: Always fully reinitialize the layout
+                    //always fully reinitialize the layout
                     initializeLayout();
                     initialized = true;
                     
-                    // Clear any existing food markers
+                    //clear any existing food markers
                     clearFoodMarkers();
-                    // Clear delivered tables set
+                    //clear delivered tables set
                     deliveredTables.clear();
-                    // Clear tables to serve set
+                    //clear tables to serve set
                     tablesToServe.clear();
-                    // Reset the status label
+                    //reset the status label
                     statusLabel.setText("Simulation started");
                     
-                    // Start the timer
+                    //start the timer
                     startTimer();
                     
                     System.out.println("[DEBUG] Simulation started - grid initialized");
@@ -267,7 +251,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         });
 
-        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
+        sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() { //listener for sim completion
             @Override
             public void onSimulationComplete() {
                 Platform.runLater(new Runnable() {
@@ -278,10 +262,10 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                             System.out.println("[UI] Simulation completed - updating status label");
 
                             
-                            // Stop the timer
+                            //stop the timer
                             stopTimer();
                             
-                            // Calculate final time and format the total elapsed time
+                            //calculate final time and format the total elapsed time
                             long totalElapsedSeconds = (System.currentTimeMillis() - startTimeMillis) / 1000;
                             int minutes = (int)(totalElapsedSeconds / 60);
                             int seconds = (int)(totalElapsedSeconds % 60);
@@ -292,7 +276,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         });
         
-        // 2. When receiving orders in the dispatch, record which tables need food
+        //when receiving orders in the dispatch, record which tables need food
         sim.addRobotDispatchListener(new SimulationEngine.RobotDispatchListener() {
             @Override
             public void onRobotDispatch(List<Order> orders, List<String> route) {
@@ -305,20 +289,20 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                 Platform.runLater(new Runnable() {
                     @Override
                     public void run() {
-                        // Reset delivered tables for new round
+                        //reset delivered tables for new round
                         deliveredTables.clear();
                         
-                        // Reset table state
+                        //reset table state
                         cargoTable.getItems().clear();
                         cargoTable.refresh();
                         
-                        // IMPORTANT: Clear and rebuild the tables to serve set
+                        //clear and rebuild the tables to serve set
                         tablesToServe.clear();
                         
-                        // Update cargo table with new orders and record tables to serve
+                        //update cargo table with new orders and record tables to serve
                         updateCargoTable(orders);
                         
-                        // Record which tables should receive food (from orders)
+                        //record which tables should receive food (from orders)
                         for (Order order : orders) {
                             String tableName = getNodeName(order.tableNumber());
                             tablesToServe.add(tableName);
@@ -327,7 +311,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                             }
                         }
                         
-                        // Start animation after a short delay
+                        //start animation after a short delay
                         PauseTransition pause = new PauseTransition(Duration.millis(200));
                         pause.setOnFinished(e -> animateRobotAlongRoute(route, orders));
                         pause.play();
@@ -336,7 +320,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         });
         
-        // Listen for delivery events from actual ServeRobot - keep for compatibility
+        //listen for delivery events from actual ServeRobot
         sim.addDeliveryListener(new SimulationEngine.DeliveryListener() {
             @Override
             public void onDelivery(String tableName) {
@@ -346,7 +330,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         });
         
-        // Listen for simulation completion
+        //listen for simulation completion
         sim.addSimulationCompletionListener(new SimulationEngine.SimulationCompletionListener() {
             @Override
             public void onSimulationComplete() {
@@ -361,39 +345,33 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         });
     }
     
-    /**
-     * Add a visual food marker to a table
-     */
-    private void addFoodToTable(String tableName) {
-        // Find the node by name
+    private void addFoodToTable(String tableName) { //add a notification mark when the food is served
+        //find the node by name
         GraphModel.Node tableNode = findNodeByName(tableName);
         if (tableNode == null) {
             System.err.println("[ERROR] Could not find table node: " + tableName);
             return;
         }
         
-        // Remove existing food marker if any
+        //remove existing food marker if any
         Circle existingMarker = foodMarkers.get(tableName);
         if (existingMarker != null) {
             gridPane.getChildren().remove(existingMarker);
         }
         
-        // Create a small circle to represent food
+        //create a small circle to represent food
         Circle foodMarker = new Circle(tableNode.x() + 15, tableNode.y() - 15, 8, Color.ORANGE);
         foodMarker.setStroke(Color.BLACK);
         foodMarker.setStrokeWidth(1);
         
-        // Add to grid and track in map
+        //add to grid and track in map
         gridPane.getChildren().add(foodMarker);
         foodMarkers.put(tableName, foodMarker);
         
         System.out.println("[FOOD] Added food marker to table: " + tableName);
     }
-    
-    /**
-     * Clear all food markers from the grid
-     */
-    private void clearFoodMarkers() {
+
+    private void clearFoodMarkers() { //clear all food markers
         for (Circle marker : foodMarkers.values()) {
             gridPane.getChildren().remove(marker);
         }
@@ -401,18 +379,15 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         System.out.println("[FOOD] Cleared all food markers");
     }
     
-    /**
-     * Initialize the layout by drawing the restaurant grid.
-     */
-    private void initializeLayout() {
-        // Clear placeholder and ensure gridPane is empty before rebuilding
+    private void initializeLayout() { //redrawing the entire grid UI
+        //clear placeholder and ensure gridPane is empty before rebuilding
         setCenter(null);
         gridPane.getChildren().clear();
         
-        // Draw the grid lines
+        //draw the grid lines
         drawGridLines();
         
-        // Draw all nodes (tables, kitchen, junctions)
+        //draw all nodes (tables, kitchen, junctions)
         for (GraphModel.Node node : graphModel.nodes()) {
             double x = node.x();
             double y = node.y();
@@ -427,7 +402,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             gridPane.getChildren().addAll(circle, label);
         }
         
-        // Draw all paths
+        //draw all paths
         for (GraphModel.Edge edge : graphModel.edges()) {
             GraphModel.Node src = findNode(edge.from);
             GraphModel.Node dst = findNode(edge.to);
@@ -438,7 +413,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                 double dstX = dst.x();
                 double dstY = dst.y();
                 
-                // If we have cell path points, draw segments through them
+                //if have cell path points, draw segments through them
                 if (edge.cells != null && !edge.cells.isEmpty()) {
                     double prevX = srcX;
                     double prevY = srcY;
@@ -449,22 +424,22 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                         
                         Line segment = new Line(prevX, prevY, cellX, cellY);
                         segment.getStyleClass().add("path-line");
-                        segment.setStrokeWidth(3); // Make sure lines are visible
-                        segment.setStroke(Color.RED); // Use consistent color
+                        segment.setStrokeWidth(3);
+                        segment.setStroke(Color.RED);
                         gridPane.getChildren().add(segment);
                         
                         prevX = cellX;
                         prevY = cellY;
                     }
                     
-                    // Final segment to destination
+                    //final segment to destination
                     Line lastSegment = new Line(prevX, prevY, dstX, dstY);
                     lastSegment.getStyleClass().add("path-line");
                     lastSegment.setStrokeWidth(3);
                     lastSegment.setStroke(Color.RED);
                     gridPane.getChildren().add(lastSegment);
                 } else {
-                    // Direct path if no cells specified
+                    //direct path if no cells specified
                     Line directPath = new Line(srcX, srcY, dstX, dstY);
                     directPath.getStyleClass().add("path-line");
                     directPath.setStrokeWidth(3);
@@ -474,12 +449,12 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         }
         
-        // Add the robot to the kitchen position
+        //add the robot to the kitchen position
         String kitchenId = graphModel.kitchenId().orElse(null);
         if (kitchenId != null) {
             GraphModel.Node kitchen = findNode(kitchenId);
             if (kitchen != null) {
-                // (Re)create the robot dot to ensure it's fresh
+                //(re)create the robot dot to ensure it's born in the kitchen
                 robotDot = new Circle(10, Color.GREEN);
                 robotDot.setStroke(Color.BLACK);
                 robotDot.setCenterX(kitchen.x());
@@ -489,17 +464,14 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         }
         
-        // Make sure we're setting the gridPane as the center
+        //setting the gridPane as the center
         setCenter(gridPane);
         
         System.out.println("[DEBUG] Grid layout initialized with " + graphModel.nodes().size() + " nodes and " + 
                            graphModel.edges().size() + " edges");
     }
      
-    /**
-     * Draw grid lines for the layout.
-     */
-    private void drawGridLines() {
+    private void drawGridLines() { //draw gridlines for the layout in this tab
         for (int i = 0; i <= CELLS; i++) {
             Line h = new Line(0, i * CELL_SIZE, CELLS * CELL_SIZE, i * CELL_SIZE);
             Line v = new Line(i * CELL_SIZE, 0, i * CELL_SIZE, CELLS * CELL_SIZE);
@@ -509,10 +481,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         }
     }
     
-    /**
-     * Find a node by its ID.
-     */
-    private GraphModel.Node findNode(String id) {
+    private GraphModel.Node findNode(String id) { //find a node by its ID
         for (GraphModel.Node node : graphModel.nodes()) {
             if (node.id().equals(id)) {
                 return node;
@@ -521,10 +490,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         return null;
     }
     
-    /**
-     * Find a node by its name (rather than ID).
-     */
-    private GraphModel.Node findNodeByName(String name) {
+    private GraphModel.Node findNodeByName(String name) { //find a node by its name
         for (GraphModel.Node node : graphModel.nodes()) {
             if (node.name().equals(name)) {
                 return node;
@@ -533,10 +499,7 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         return null;
     }
     
-    /**
-     * Find an edge between two nodes by their IDs.
-     */
-    private GraphModel.Edge findEdge(String idA, String idB) {
+    private GraphModel.Edge findEdge(String idA, String idB) { //find an edge between two nodes(ID)
         for (GraphModel.Edge edge : graphModel.edges()) {
             if ((edge.from.equals(idA) && edge.to.equals(idB)) ||
                 (edge.from.equals(idB) && edge.to.equals(idA))) {
@@ -546,18 +509,15 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         return null;
     }
     
-    /**
-     * Update the cargo table with the current orders.
-     */
-    private void updateCargoTable(List<Order> orders) {
+    private void updateCargoTable(List<Order> orders) { //update the cargo table
         if (DEBUG) {
             System.out.println("[DEBUG] Updating cargo table with " + orders.size() + " orders");
         }
         
-        // Create a new list for the cargo items
+        //create a new list for the cargo items
         List<RobotCargo> cargoItems = new ArrayList<>();
         
-        // Add each order to the list
+        //add each order to the list
         for (Order order : orders) {
             String tableName = getNodeName(order.tableNumber());
             String foodName = order.dish().name;
@@ -567,30 +527,28 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             cargoItems.add(new RobotCargo(foodName, tableName));
         }
         
-        // Create a new observable list
+        //create a new observable list
         ObservableList<RobotCargo> observableItems = FXCollections.observableArrayList(cargoItems);
         
-        // Clear existing items first
+        //clear existing items first
         cargoTable.getItems().clear();
         
-        // Set the new items
+        //set the new items
         cargoTable.setItems(observableItems);
         
-        // Log state after update
+        //log state after update
         if (DEBUG) {
             System.out.println("[DEBUG] Table now has " + cargoTable.getItems().size() + " items");
         }
         
-        // Make sure table is visible
+        //make sure table is visible
         cargoTable.setVisible(true);
         
-        // Force refresh
+        //force refresh
         cargoTable.refresh();
     }
-        /**
-     * Get the node name for a table number.
-     */
-    private String getNodeName(int tableNumber) {
+      
+    private String getNodeName(int tableNumber) { //get node name by its number
         return graphModel.nodes().stream()
             .filter(n -> graphModel.getNodeInfo(n.id())
                 .filter(info -> info.kind == GraphModel.NodeKind.TABLE && info.number == tableNumber)
@@ -601,21 +559,19 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             .orElse(String.valueOf(tableNumber));
     }
     
-    // 3. Modify the handleTableDelivery method to only mark tables that should receive food
-    private void handleTableDelivery(String tableName) {
-        // Skip if already delivered to this table in this round
+    private void handleTableDelivery(String tableName) { //only mark tables that should receive food
         if (deliveredTables.contains(tableName)) {
             return;
         }
         
         System.out.println("[DELIVERY] Processing delivery for table: " + tableName);
         
-        // Only add food marker if this table is in the tablesToServe set
+        //only add food marker if this table is in the tablesToServe set
         if (tablesToServe.contains(tableName)) {
-            // Manually add visual food marker to the table
+            //manually add visual food marker to the table
             addFoodToTable(tableName);
             
-            // Check if there are any cargo items for this table
+            //check if there are any cargo items for this table
             List<RobotCargo> deliveredItems = new ArrayList<>();
             
             for (RobotCargo cargo : cargoTable.getItems()) {
@@ -627,12 +583,12 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             if (!deliveredItems.isEmpty()) {
                 System.out.println("[DELIVERY] Delivering " + deliveredItems.size() + " food items to " + tableName);
                 
-                // Remove items from cargo table
+                //remove items from cargo table
                 cargoTable.getItems().removeAll(deliveredItems);
                 cargoTable.refresh();
                 
-                // Also notify the simulation engine (original mechanism)
-                // This is important for the simulation logic
+                //also notify the simulation engine (original mechanism)
+                //this is important for the simulation logic
                 sim.notifyDelivery(tableName);
             } else {
                 System.out.println("[DELIVERY WARNING] No matching cargo items found for " + tableName);
@@ -641,14 +597,11 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             System.out.println("[PASS] Robot passing through table " + tableName + " (no delivery)");
         }
         
-        // Mark as delivered/visited to avoid duplicate deliveries
+        //mark as delivered/visited to avoid duplicate deliveries
         deliveredTables.add(tableName);
     }
     
-    /**
-     * Gets the index of a node in the route
-     */
-    private int getNodeIndexInRoute(String nodeName, List<String> route) {
+    private int getNodeIndexInRoute(String nodeName, List<String> route) { //get a node index in a serving route
         for (int i = 0; i < route.size(); i++) {
             if (route.get(i).equals(nodeName)) {
                 return i;
@@ -657,25 +610,22 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         return -1;
     }
     
-    /**
-     * Find the exact distance to each node in the route
-     */
-    private Map<String, Double> calculateNodeDistances(List<String> route) {
+    private Map<String, Double> calculateNodeDistances(List<String> route) { //calculate the distance between each pair of nodes in this route
         Map<String, Double> distances = new HashMap<>();
         
         if (route.isEmpty()) {
             return distances;
         }
         
-        // Start with first node
+        //start with first node
         String currentNodeName = route.get(0);
         GraphModel.Node currentNode = findNodeByName(currentNodeName);
         
-        // First node is at distance 0
+        //first node is at distance 0
         distances.put(currentNodeName, 0.0);
         double totalDistance = 0.0;
         
-        // Calculate distance to each subsequent node
+        //calculate distance to each subsequent node
         for (int i = 1; i < route.size(); i++) {
             String nextNodeName = route.get(i);
             GraphModel.Node nextNode = findNodeByName(nextNodeName);
@@ -684,16 +634,14 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                 continue;
             }
             
-            // Find the edge between current and next node
+            //find the edge between current and next node
             GraphModel.Edge edge = findEdge(currentNode.id(), nextNode.id());
-            
-            // Add this segment's distance
             double segmentDistance = 0.0;
             
             if (edge != null) {
-                segmentDistance = edge.weight + 1; // Add 1 for the edge itself
+                segmentDistance = edge.weight + 1; //add 1 for the edge itself
             } else {
-                // Calculate direct distance if no edge found
+                //calculate direct distance if no edge found
                 segmentDistance = Math.sqrt(
                     Math.pow(nextNode.x() - currentNode.x(), 2) + 
                     Math.pow(nextNode.y() - currentNode.y(), 2)
@@ -703,17 +651,14 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             totalDistance += segmentDistance;
             distances.put(nextNodeName, totalDistance);
             
-            // Move to next node
+            //move to next node
             currentNode = nextNode;
         }
         
         return distances;
     }
     
-    /**
-     * Create a Path object that follows the route
-     */
-    private Path createPathFromRoute(List<String> route) {
+    private Path createPathFromRoute(List<String> route) { //create an object following the route
         Path path = new Path();
         
         if (route.isEmpty()) {
@@ -724,26 +669,26 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
         GraphModel.Node currentNode = findNodeByName(currentNodeName);
         if (currentNode == null) return path;
         
-        // Start at first node
+        //start at first node
         path.getElements().add(new MoveTo(currentNode.x(), currentNode.y()));
         
-        // Follow each segment in the route
+        //follow each segment in the route
         for (int i = 1; i < route.size(); i++) {
             String nextNodeName = route.get(i);
             GraphModel.Node nextNode = findNodeByName(nextNodeName);
             
             if (nextNode == null) continue;
             
-            // Find the edge between current and next node
+            //find the edge between current and next node
             GraphModel.Edge edge = findEdge(currentNode.id(), nextNode.id());
             
             if (edge != null && edge.cells != null && !edge.cells.isEmpty()) {
-                // Check if we need to reverse the cell points based on direction
+                //check if we need to reverse the cell points based on direction
                 List<Point> pathCells = new ArrayList<>(edge.cells);
                 boolean reversed = edge.from.equals(nextNode.id());
                 
                 if (reversed) {
-                    // Reverse the cell points if we're going in the opposite direction
+                    //reverse the cell points if we're going in the opposite direction
                     List<Point> reversedCells = new ArrayList<>();
                     for (int j = pathCells.size() - 1; j >= 0; j--) {
                         reversedCells.add(pathCells.get(j));
@@ -751,33 +696,29 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
                     pathCells = reversedCells;
                 }
                 
-                // Follow the path through the edge's cell points
+                //follow the path through the edge's cell points
                 for (Point cellPoint : pathCells) {
                     double cellX = cellPoint.x * CELL_SIZE + CELL_SIZE / 2.0;
                     double cellY = cellPoint.y * CELL_SIZE + CELL_SIZE / 2.0;
                     path.getElements().add(new LineTo(cellX, cellY));
                 }
                 
-                // Add final segment to destination node
+                //add final segment to destination node
                 path.getElements().add(new LineTo(nextNode.x(), nextNode.y()));
             } else {
-                // Direct edge (no path cells) - just draw straight line
+                //direct edge (no path cells) - just draw straight line
                 path.getElements().add(new LineTo(nextNode.x(), nextNode.y()));
             }
             
-            // Move to next node
+            //move to next node
             currentNode = nextNode;
         }
         
         return path;
     }
     
-    /**
-     * Animate the robot along a route following the exact grid paths.
-     * This version adjusts timing for accurate delivery point recognition.
-     */
-    private void animateRobotAlongRoute(List<String> route, List<Order> orders) {
-        // Cancel any existing animation
+    private void animateRobotAlongRoute(List<String> route, List<Order> orders) { //robot animation
+        //cancel any existing animation
         if (isAnimationRunning) {
             if (robotAnimation != null) {
                 robotAnimation.stop();
@@ -789,12 +730,12 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             return;
         }
         
-        // Reset delivered tables for new round
+        //reset delivered tables for new round
         deliveredTables.clear();
         
         statusLabel.setText("Robot in motion: " + String.join(" -> ", route));
         
-        // Find all tables in the route (not kitchen or junction)
+        //find all tables in the route (not kitchen or junction)
         List<String> tableNodesInRoute = new ArrayList<>();
         for (String nodeName : route) {
             if (!nodeName.startsWith("K") && !nodeName.startsWith("J")) {
@@ -803,43 +744,43 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             }
         }
         
-        // Calculate exact node distances
+        //calculate exact node distances
         Map<String, Double> nodeDistances = calculateNodeDistances(route);
         
-        // Create the path
+        //create the path
         Path path = createPathFromRoute(route);
         
-        // Get total distance (from last node)
+        //get total distance (from last node)
         double totalDistance = nodeDistances.getOrDefault(route.get(route.size() - 1), 0.0);
         if (totalDistance == 0.0) {
-            // Fallback if distances couldn't be calculated
+            //fallback if distances couldn't be calculated
             totalDistance = route.size();
         }
         
-        // Create the animation
+        //create the animation
         PathTransition transition = new PathTransition();
-        transition.setDuration(Duration.seconds(0.5 * totalDistance)); // 1 second per unit distance
+        transition.setDuration(Duration.seconds(0.5 * totalDistance)); //0.5 second per block
         transition.setPath(path);
         transition.setNode(robotDot);
         transition.setCycleCount(1);
         
-        // Set LINEAR interpolator for constant speed motion
+        //set LINEAR interpolator for constant speed motion
         transition.setInterpolator(javafx.animation.Interpolator.LINEAR);
         
-        // Keep track of animation
+        //keep track of animation
         robotAnimation = transition;
         
-        // Schedule deliveries using timed animations - IMPORTANT: Adjust timing to be at table exactly
+        //schedule deliveries using timed animations
         for (String tableName : tableNodesInRoute) {
-            // Find exact node index - important to get right route position
+            //find exact node index - important to get right route position
             int nodeIndex = getNodeIndexInRoute(tableName, route);
             if (nodeIndex == -1) continue;
             
-            // Use calculated distance from node distances map
+            //use calculated distance from node distances map
             double exactDistance = nodeDistances.getOrDefault(tableName, 0.0);
             
-            // Create a pause transition that waits until it's time to deliver
-            // Slightly adjust timing (subtract a tiny bit) to ensure we're exactly at the node
+            //create a pause transition that waits until it's time to deliver
+            //slightly adjust timing (subtract a tiny bit) to ensure we're exactly at the node
             double deliveryTime = 0.5 * exactDistance;
             
             System.out.println("[TIMING] Table " + tableName + " at index " + nodeIndex + 
@@ -850,35 +791,34 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
             deliveryTimer.setOnFinished(e -> {
                 System.out.println("[TIMED] Time to deliver to: " + tableName);
                 
-                // Manually trigger delivery
+                //manually trigger delivery
                 handleTableDelivery(tableName);
             });
             deliveryTimer.play();
         }
         
-        // Start the animation
+        //start the animation
         isAnimationRunning = true;
         transition.play();
         
-        // When animation completes...
+        //when animation completes...
         transition.setOnFinished(e -> {
-            // First notify we're done
+            //first notify we're done
             isAnimationRunning = false;
             statusLabel.setText("Robot returned to kitchen");
             
-            // Clear all food markers when the robot returns to kitchen
+            //clear all food markers when the robot returns to kitchen
             clearFoodMarkers();
             
-            // Clear the cargo table
+            //clear the cargo table
             cargoTable.getItems().clear();
             cargoTable.refresh();
             System.out.println("[DEBUG] Cleared cargo table after animation");
             
-            // Important: Create a slight delay before notifying simulation engine
-            // This ensures the UI is fully updated before the next round starts
+            //create a slight delay before notifying simulation engine
             PauseTransition completionDelay = new PauseTransition(Duration.millis(500));
             completionDelay.setOnFinished(event -> {
-                // Notify simulation engine that movement is complete
+                //notify simulation engine that movement is complete
                 sim.notifyRobotMovementComplete();
             });
             completionDelay.play();
@@ -886,19 +826,19 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
     }
 
     private void startTimer() {
-        // Reset timer state
+        //reset timer state
         elapsedSeconds = 0;
         if (timerTimeline != null) {
             timerTimeline.stop();
         }
         
-        // Record start time
+        //record start time
         startTimeMillis = System.currentTimeMillis();
         
-        // Update timer label
+        //update timer label
         updateTimerLabel();
         
-        // Create and start the timer
+        //create and start the timer
         timerTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             elapsedSeconds++;
             updateTimerLabel();
@@ -920,12 +860,12 @@ public class RobotSimulationPane extends BorderPane implements SimulationEngine.
     }
 
     public String getCurrentTimerText() {
-        // Extract just the time part (MM:SS) from the timer label
+        //extract just the time part (MM:SS) from the timer label
         String labelText = timerLabel.getText();
         if (labelText.startsWith("Timer: ")) {
-            return labelText.substring(7); // Remove "Timer: "
+            return labelText.substring(7); //remove "Timer: "
         } else if (labelText.startsWith("Total time: ")) {
-            return labelText.substring(12); // Remove "Total time: "
+            return labelText.substring(12); //remove "Total time: "
         }
         return labelText;
     }
